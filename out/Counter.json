@@ -1,0 +1,38 @@
+{
+    "contract_name": "Counter",
+    "bytecode": "61008061000f6000396100806000f35f3560e01c60026003820660011b61007a01601e395f51565b63d6d1ee14811861007257602436103417610076576004355f55005b63d09de08a81186100575734610076575f54600181018181106100765790505f55005b638381f58a81186100725734610076575f5460405260206040f35b5f5ffd5b5f80fd0018003400728558209936e592341da00969d7534a72fd049910d6be0320ce72a6bed0a9ae7345a4f21880810600a1657679706572830004010035",
+    "abi": [
+        {
+            "stateMutability": "nonpayable",
+            "type": "function",
+            "name": "set_number",
+            "inputs": [
+                {
+                    "name": "new_number",
+                    "type": "uint256"
+                }
+            ],
+            "outputs": []
+        },
+        {
+            "stateMutability": "nonpayable",
+            "type": "function",
+            "name": "increment",
+            "inputs": [],
+            "outputs": []
+        },
+        {
+            "stateMutability": "view",
+            "type": "function",
+            "name": "number",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint256"
+                }
+            ]
+        }
+    ],
+    "vm": "evm"
+}
