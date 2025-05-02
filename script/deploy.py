@@ -49,13 +49,6 @@ class UserRightChecker(VyperContract):
 
 def deploy() -> UserRightChecker:
     user_right_checker: UserRightChecker = UserRightChecker_deployer.deploy()
-    
-    user_right_checker.create_user(1)
-    user_right_checker.create_user_w_right(2, "read_patient_data")
-    print(user_right_checker.user_right_mapping(1, "read_patient_data"))
-    print(user_right_checker.user_right_mapping(2, "read_patient_data"))
-    print("status: ", user_right_checker.check_user_right(1, "read_patient_data"))
-    # print("Ending count: ", counter.number())
     return user_right_checker
 
 def moccasin_main() -> UserRightChecker:
