@@ -28,7 +28,7 @@ url = "http://127.0.0.1:8545"
 chain_id = 1337
 save_to_db = true
 is_zksync = false
-default_account_name = "super_secret"
+default_account_name = "AICGroupW6"
 db_path = "deployment_information/ganache_deployments.db"
 
 
