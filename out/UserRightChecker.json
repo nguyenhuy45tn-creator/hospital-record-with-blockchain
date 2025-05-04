@@ -1,0 +1,119 @@
+{
+    "contract_name": "UserRightChecker",
+    "bytecode": "6102f5610011610000396102f5610000f35f3560e01c60026005820660011b6102eb01601e395f51565b63efd595bc811861008d576044361034176102e7576004358060801c6102e7576040526024356004018035601481116102e7575060208135018082606037505060015f6040516020525f5260405f2055600160016040516020525f5260405f20806060516080206020525f5260405f20905055005b635e3d5d8d81186102e3576064361034176102e7576004358060801c6102e7576040526024356004018035601481116102e757506020813501808260603750506044358060011c6102e75760a0525f6040516020525f5260405f205461011a577fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff60c052602060c0610148565b60a05160016040516020525f5260405f20806060516080206020525f5260405f20905055600160c052602060c05bf35b635935b68e811861017f576024361034176102e7576004358060801c6102e75760405260015f6040516020525f5260405f2055005b6346b3755581186102e3576044361034176102e7576004358060801c6102e7576040526024356004018035601481116102e7575060208135018082606037505060016040516020525f5260405f20806060516080206020525f5260405f2090505460a052602060a0f35b6331b2001081186102a9576044361034176102e7576004358060801c6102e7576040526024356004018035601481116102e757506020813501808260603750505f6040516020525f5260405f2054610268577fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff60a052602060a06102a7565b600160016040516020525f5260405f20806060516080206020525f5260405f209050541861029e57600160a052602060a06102a7565b5f60a052602060a05bf35b630843f4db81186102e3576024361034176102e7576004358060801c6102e7576040525f6040516020525f5260405f205460605260206060f35b5f5ffd5b5f80fd02e3014a02e301e90018855820e99b0aa3a76a067016bc76f3baa241c79214739fe64b5cd9cbf54f274b0817071902f5810a00a1657679706572830004010036",
+    "abi": [
+        {
+            "stateMutability": "nonpayable",
+            "type": "function",
+            "name": "create_user_w_right",
+            "inputs": [
+                {
+                    "name": "user_id",
+                    "type": "uint128"
+                },
+                {
+                    "name": "right",
+                    "type": "string"
+                }
+            ],
+            "outputs": []
+        },
+        {
+            "stateMutability": "nonpayable",
+            "type": "function",
+            "name": "create_user",
+            "inputs": [
+                {
+                    "name": "user_id",
+                    "type": "uint128"
+                }
+            ],
+            "outputs": []
+        },
+        {
+            "stateMutability": "nonpayable",
+            "type": "function",
+            "name": "modify_user_right",
+            "inputs": [
+                {
+                    "name": "user_id",
+                    "type": "uint128"
+                },
+                {
+                    "name": "access_right",
+                    "type": "string"
+                },
+                {
+                    "name": "has_right",
+                    "type": "bool"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "int8"
+                }
+            ]
+        },
+        {
+            "stateMutability": "view",
+            "type": "function",
+            "name": "check_user_right",
+            "inputs": [
+                {
+                    "name": "user_id",
+                    "type": "uint128"
+                },
+                {
+                    "name": "access_right",
+                    "type": "string"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "int8"
+                }
+            ]
+        },
+        {
+            "stateMutability": "view",
+            "type": "function",
+            "name": "user_exist",
+            "inputs": [
+                {
+                    "name": "arg0",
+                    "type": "uint128"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "bool"
+                }
+            ]
+        },
+        {
+            "stateMutability": "view",
+            "type": "function",
+            "name": "user_right_mapping",
+            "inputs": [
+                {
+                    "name": "arg0",
+                    "type": "uint128"
+                },
+                {
+                    "name": "arg1",
+                    "type": "string"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "bool"
+                }
+            ]
+        }
+    ],
+    "vm": "evm"
+}

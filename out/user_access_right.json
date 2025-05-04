@@ -1,0 +1,73 @@
+{
+    "contract_name": "user_access_right",
+    "bytecode": "6102b3610011610000396102b3610000f35f3560e01c60026003820660011b6102ad01601e395f51565b631f3bf3cd811861008b576044361034176102a9576004358060801c6102a9576040526024356004018035601481116102a957506020813501808260603750505f6040516020525f5260405f20806060516080206020525f5260405f20905060018155600160018201555f600282015550005b63c8a767a781186102a5576064361034176102a9576004358060801c6102a9576040526024356004018035601481116102a957506020813501808260603750506044358060011c6102a95760a0525f6040516020525f5260405f20806060516080206020525f5260405f209050805460c052600181015460e0526002810154610100525060c051610145577fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff61012052602061012061019e565b60e05161017b577ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe61012052602061012061019e565b61010051610192575f61012052602061012061019e565b60016101205260206101205bf35b635e3d5d8d81186102a5576064361034176102a9576004358060801c6102a9576040526024356004018035601481116102a957506020813501808260603750506044358060011c6102a95760a0525f6040516020525f5260405f20806060516080206020525f5260405f209050805460c052600181015460e0526002810154610100525060c05161025a577fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6101205260206101206102a3565b60e051610290577ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe6101205260206101206102a3565b60a0516101005260016101205260206101205bf35b5f5ffd5b5f80fd02a5001801a08558208ac1f2fcfff274082893c3ba63724104f78c45f5b56c4cb8d10ba2704ed000a11902b3810600a1657679706572830004010036",
+    "abi": [
+        {
+            "stateMutability": "nonpayable",
+            "type": "function",
+            "name": "create_user",
+            "inputs": [
+                {
+                    "name": "user_id",
+                    "type": "uint128"
+                },
+                {
+                    "name": "right",
+                    "type": "string"
+                }
+            ],
+            "outputs": []
+        },
+        {
+            "stateMutability": "nonpayable",
+            "type": "function",
+            "name": "modify_user_right",
+            "inputs": [
+                {
+                    "name": "user_id",
+                    "type": "uint128"
+                },
+                {
+                    "name": "access_right",
+                    "type": "string"
+                },
+                {
+                    "name": "has_right",
+                    "type": "bool"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "int8"
+                }
+            ]
+        },
+        {
+            "stateMutability": "view",
+            "type": "function",
+            "name": "name",
+            "inputs": [
+                {
+                    "name": "user_id",
+                    "type": "uint128"
+                },
+                {
+                    "name": "access_right",
+                    "type": "string"
+                },
+                {
+                    "name": "has_right",
+                    "type": "bool"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "int8"
+                }
+            ]
+        }
+    ],
+    "vm": "evm"
+}
