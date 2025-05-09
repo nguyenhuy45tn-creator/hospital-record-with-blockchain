@@ -181,30 +181,32 @@ def get_all_users(engine):
         output = session.execute(query).scalars().all()
     return output
 
-def get_health_records(user_system_wide_identifier:uuid.UUID):
+def get_health_records(engine, user_system_wide_identifier:uuid.UUID):
     """
-    Retrieves the healthcare record associated with a specific user.
+    Retrieves the healthcare records associated with a specific user.
 
     Only call after access control is performed
 
     First finds the user by their system-wide identifier, then finds the
-    healthcare record linked to that user's primary key ID.
+    healthcare records linked to that user's primary key ID. A user can
+    have multiple healthcare records.
 
     Args:
         engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
         user_system_wide_identifier (uuid.UUID): The unique UUID identifier of the user whose record is needed.
 
     Returns:
-        HealthcareRecord | None: The HealthcareRecord object if found, otherwise None.
+        list[HealthcareRecord]: A list of HealthcareRecord objects associated with the user.
+                                Returns an empty list if the user is not found or has no records.
     """
     with Session(engine) as session:
         query = select(User).where(User.system_wide_identifier == user_system_wide_identifier)
-        user = session.execute(query).scalar_one()
+        user = session.execute(query).scalar_one_or_none() # Use scalar_one_or_none to handle user not found
         if user:
             query = select(HealthcareRecord).where(HealthcareRecord.patient_user_id == user.user_id)
-            record = session.execute(query).scalar()
-            return record
-        return None            
+            records = session.execute(query).scalars().all()
+            return records
+        return [] # Return an empty list if user not found
 
 def add_user(engine, username: str, password_plain: str, full_name: str, address: str, hospital_designation: str):
     """
