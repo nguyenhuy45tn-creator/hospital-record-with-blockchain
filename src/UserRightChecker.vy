@@ -230,19 +230,19 @@ def delete_role(role_name: String[100]) -> int8:
 @external
 def delete_right(right: String[100]) -> int8:
 
-    right_idx: uint8 = self.right_position[right_name]
-    role_idx_256: uint256 = convert(role_idx, uint256)
+    right_idx: uint8 = self.right_position[right]
+    right_idx_256: uint256 = convert(right_idx, uint256)
 
-    if not(self.right_list[right_idx] == right_name):
+    if not(self.right_list[right_idx] == right):
         return -1
     
     for i: uint256 in range(len(self.right_list), bound=2**8):
         if i >= right_idx_256:
             self.right_list[i] = self.right_list[i+1] 
 
-    self.role_exists[role_name] = False
+    self.right_exists[right] = False
 
-    for right: String[100] in self.right_list:
-        self.role_right_mapping[role_name][right] = False
+    for role: String[100] in self.role_list:
+        self.role_right_mapping[role][right] = False
 
     return 1
