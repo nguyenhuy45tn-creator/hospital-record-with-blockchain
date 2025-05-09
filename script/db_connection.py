@@ -327,46 +327,12 @@ def populate_example_data(engine):
                 session.add(role)
             roles[name] = role
 
-        # --- 2. Define and Create Permissions ---
-        permissions_data = {
-            "read_own_record": "Allows reading own health records.",
-            "read_patient_record": "Allows reading any patient's health records.",
-            "edit_patient_record": "Allows editing any patient's health records.",
-            "manage_users": "Allows creating, updating, and deleting users.",
-            "manage_roles": "Allows managing roles and permissions."
-        }
-        permissions = {}
-        for name, desc in permissions_data.items():
-            perm = session.query(Permission).filter_by(permission_name=name).first()
-            if not perm:
-                perm = Permission(permission_name=name, description=desc)
-                session.add(perm)
-            permissions[name] = perm
-
-        # Commit roles and permissions before assigning them
+        # Commit roles
         session.commit()
-        # Refresh roles/permissions objects to ensure they have IDs after commit
+        # Refresh roles objects to ensure they have IDs after commit
         for name in roles: roles[name] = session.merge(roles[name])
-        for name in permissions: permissions[name] = session.merge(permissions[name])
 
-
-        # --- 3. Assign Permissions to Roles (Idempotent) ---
-        role_permission_map = {
-            "Patient": ["read_own_record"],
-            "Doctor": ["read_patient_record", "edit_patient_record"],
-            "Nurse": ["read_patient_record", "edit_patient_record"],
-            "Admin": ["manage_users", "manage_roles", "read_patient_record"] # Admins might need to read records too
-        }
-
-        for role_name, perm_names in role_permission_map.items():
-            role = roles[role_name]
-            current_perm_names = {p.permission_name for p in role.permissions}
-            for perm_name in perm_names:
-                if perm_name not in current_perm_names:
-                    role.permissions.append(permissions[perm_name])
-
-        # --- 4. Create Example Users (Idempotent) ---
-        # NOTE: Using plain text passwords here, which will be hashed and salted below.
+        # --- 2. Create Example Users (Idempotent) ---
         users_data = [
             {"username": "patient_alice", "password": "password123", "full_name": "Alice Wonderland", "address": "123 Rabbit Hole", "hospital_designation": "Patient", "role": "Patient"},
             {"username": "doctor_bob", "password": "password123", "full_name": "Dr. Bob Smith", "address": "456 Health St", "hospital_designation": "General Practitioner", "role": "Doctor"},
@@ -376,44 +342,70 @@ def populate_example_data(engine):
 
         created_users = {}
         for user_data in users_data:
-            user = session.query(User).filter_by(username=user_data["username"]).first()
-            if not user:
+            # Check if login (and thus user) already exists
+            login_entry = session.query(Login).filter_by(user_name=user_data["username"]).first()
+            if not login_entry:
                 salt = gensalt()
-                hashed_pw = hashpw(user_data["password"].encode('utf-8'), salt) # Encode password to bytes
+                hashed_pw = hashpw(user_data["password"].encode('utf-8'), salt)
+                
+                new_login = Login(
+                    user_name=user_data["username"],
+                    salt=salt,
+                    hashed_password=hashed_pw
+                )
+
                 user = User(
-                    username=user_data["username"],
-                    salt=salt, # Store the generated salt
-                    hashed_password=hashed_pw, # Store the hashed password
+                    # user_name will be set via the login_details relationship
                     full_name=user_data["full_name"],
                     address=user_data["address"],
                     hospital_designation=user_data["hospital_designation"]
                 )
+                user.login_details = new_login # Associate user with login
                 user.role = roles[user_data["role"]] # Assign single role object
-                session.add(user)
-            created_users[user_data["username"]] = user
+                session.add(user) # Adding user will also add new_login due to relationship
+                created_users[user_data["username"]] = user
+            else:
+                # User already exists, fetch them via the login entry's user relationship
+                # and ensure it's part of the current session.
+                if login_entry.user:
+                    created_users[user_data["username"]] = session.merge(login_entry.user)
+                else:
+                    # Fallback: if login_entry.user is None (should not happen with correct setup)
+                    # try to find User by user_name. This is less ideal.
+                    _user = session.query(User).filter_by(user_name=login_entry.user_name).first()
+                    if _user:
+                        created_users[user_data["username"]] = _user
+                    else:
+                        print(f"Warning: Login {login_entry.user_name} exists but no associated User found. Skipping.")
 
         # Commit users to get their IDs
         session.commit()
         # Refresh user objects
-        for username in created_users: created_users[username] = session.merge(created_users[username])
+        for username_key in list(created_users.keys()): # Iterate over a copy of keys
+            if created_users[username_key]:
+                 created_users[username_key] = session.merge(created_users[username_key])
+            else: # Should not happen if logic above is correct
+                del created_users[username_key]
 
-        # --- 5. Create Example Health Record for Patient (Idempotent) ---
-        patient_user = created_users["patient_alice"]
-        doctor_user = created_users["doctor_bob"]
-        existing_record = session.query(HealthcareRecord).filter_by(patient_user_id=patient_user.user_id).first()
-        if not existing_record:
-            record_data = {
-                "allergies": ["Penicillin"],
-                "conditions": ["Hypertension"],
-                "medications": [{"name": "Lisinopril", "dosage": "10mg", "frequency": "daily"}],
-                "notes": "Patient presented with high blood pressure."
-            }
-            new_record = HealthcareRecord(
-                patient_user_id=patient_user.user_id,
-                record_data=record_data,
-                last_updated_by_user_id=doctor_user.user_id # Track who created/updated
-            )
-            session.add(new_record)
+        # --- 3. Create Example Health Record for Patient (Idempotent) ---
+        patient_user = created_users.get("patient_alice")
+        doctor_user = created_users.get("doctor_bob")
+
+        if patient_user and doctor_user: # Ensure users were found/created
+            existing_record = session.query(HealthcareRecord).filter_by(patient_user_id=patient_user.user_id).first()
+            if not existing_record:
+                record_data = {
+                    "allergies": ["Penicillin"],
+                    "conditions": ["Hypertension"],
+                    "medications": [{"name": "Lisinopril", "dosage": "10mg", "frequency": "daily"}],
+                    "notes": "Patient presented with high blood pressure."
+                }
+                new_record = HealthcareRecord(
+                    patient_user_id=patient_user.user_id,
+                    record_data=record_data,
+                    last_updated_by_user_id=doctor_user.user_id # Track who created/updated
+                )
+                session.add(new_record)
 
         # Final commit for any remaining changes (role assignments, records)
         session.commit()
