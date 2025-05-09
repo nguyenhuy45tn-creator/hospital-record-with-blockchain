@@ -32,5 +32,5 @@ def login():
 
     return render_template_string(form_html, message=message)
 
-if __name__ == '__main__':
+def moccasin_main():
     app.run(debug=True)
