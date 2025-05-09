@@ -13,7 +13,7 @@ class String(list):
     # this is only for better notation
     pass
 
-class UserRightChecker:
+class RoleRightChecker:
     """
     A wrapper class for a Vyper contract that provides type-checked and boundary-checked
     methods to interact with a user rights management smart contract.
