@@ -9,8 +9,6 @@ from sqlalchemy import (
     Text,
     ForeignKey,
     DateTime,
-    Table,
-    UniqueConstraint,
     LargeBinary,
     select
 )
@@ -23,98 +21,107 @@ from bcrypt import hashpw, checkpw, gensalt
 # Define the base class for declarative models
 Base = declarative_base()
 
-# --- Association Tables for Many-to-Many relationships ---
-
-# Association table for Roles <-> Permissions
-role_permissions_table = Table('role_permissions', Base.metadata,
-    Column('role_id', Integer, ForeignKey('roles.role_id', ondelete='CASCADE'), primary_key=True),
-    Column('permission_id', Integer, ForeignKey('permissions.permission_id', ondelete='CASCADE'), primary_key=True)
-)
-
-# Association table for Users <-> Roles
-user_roles_table = Table('user_roles', Base.metadata,
-    Column('user_id', Integer, ForeignKey('users.user_id', ondelete='CASCADE'), primary_key=True),
-    Column('role_id', Integer, ForeignKey('roles.role_id', ondelete='CASCADE'), primary_key=True)
-)
-
 class Role(Base):
     __tablename__ = 'roles'
 
-    role_id = Column(Integer, primary_key=True)
-    role_name = Column(String(50), unique=True, nullable=False)
+    role_name = Column(String(50), primary_key=True)
     description = Column(Text)
 
-    permissions = relationship("Permission", secondary=role_permissions_table, back_populates="roles")
-    users = relationship("User", secondary=user_roles_table, back_populates="roles")
+    users = relationship("User", back_populates="role") # A role can have multiple users
 
     def __repr__(self):
         return f"<Role(role_name='{self.role_name}')>"
+    
+class Login(Base):
+    __tablename__ = 'logins'
 
-class Permission(Base):
-    __tablename__ = 'permissions'
+    user_name = Column(String(100), primary_key=True, index=True)
+    # Use LargeBinary to store byte output from bcrypt
+    hashed_password = Column(LargeBinary, nullable=False)
+    salt = Column(LargeBinary, nullable=False)
 
-    permission_id = Column(Integer, primary_key=True)
-    permission_name = Column(String(100), unique=True, nullable=False)
-    description = Column(Text)
-
-    roles = relationship("Role", secondary=role_permissions_table, back_populates="permissions")
+    user = relationship("User", back_populates="login_details", uselist=False, cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Permission(permission_name='{self.permission_name}')>"
+        return f"<Login(user_name='{self.user_name}')>"
 
 class User(Base):
+    __versioned__ = {}
     __tablename__ = 'users'
 
     user_id = Column(Integer, primary_key=True)
-    # Use client-side default for UUID, ensure postgres pgcrypto extension is enabled if using server default
     system_wide_identifier = Column(PG_UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
-    username = Column(String(100), unique=True, nullable=False, index=True)
-    # Use LargeBinary to store byte output from bcrypt
-    salt = Column(LargeBinary, nullable=False, default=gensalt())
-    hashed_password = Column(LargeBinary, nullable=False)
+    user_name = Column(String(100), ForeignKey('logins.user_name'), unique=True, nullable=False, index=True)
     full_name = Column(String(255), nullable=False)
     address = Column(Text)
     hospital_designation = Column(String(100))
-    # Use timezone=True for TIMESTAMPTZ, server_default for database-level default
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    last_updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    updated_by_user_id = Column(Integer, ForeignKey('users.user_id'))
+    user_role_name = Column(String(50), ForeignKey('roles.role_name'))
 
-    # Relationship to Roles (many-to-many)
-    roles = relationship("Role", secondary=user_roles_table, back_populates="users")
-    # Relationship to HealthcareRecord (one-to-one, patient perspective)
-    healthcare_record = relationship("HealthcareRecord", back_populates="patient", uselist=False, foreign_keys='HealthcareRecord.patient_user_id', cascade="all, delete-orphan")
-    # Relationships for tracking updates (one-to-many)
-    updated_records = relationship("HealthcareRecord", back_populates="last_updated_by", foreign_keys='HealthcareRecord.last_updated_by_user_id')
+    # Relationship to Login (one-to-one)
+    login_details = relationship("Login", back_populates="user", uselist=False, foreign_keys=[user_name])
 
+    # Relationship to Role (many-to-one)
+    role = relationship("Role", back_populates="users", foreign_keys=[user_role_name])
+
+    # Self-referential relationships for user updates
+    # The user who updated this user record:
+    updated_by_user = relationship(
+        "User",
+        remote_side=[user_id],  # The 'user_id' of the User who performed the update
+        foreign_keys=[updated_by_user_id],
+        back_populates="users_they_updated"
+    )
+    # List of users that this user instance has updated:
+    users_they_updated = relationship(
+        "User",
+        foreign_keys=[updated_by_user_id], # Looks for User records where updated_by_user_id is this user's ID
+        back_populates="updated_by_user"
+    )
+
+    # Relationships to HealthcareRecord
+    # Healthcare records where this user is the patient:
+    patient_records = relationship(
+        "HealthcareRecord",
+        foreign_keys="[HealthcareRecord.patient_user_id]",
+        back_populates="patient"
+    )
+    # Healthcare records that this user last updated:
+    updated_records = relationship(
+        "HealthcareRecord",
+        foreign_keys="[HealthcareRecord.last_updated_by_user_id]",
+        back_populates="last_updated_by"
+    )
 
     def __repr__(self):
-        return f"<User(username='{self.username}', system_id='{self.system_wide_identifier}')>"
+        return f"<User(user_name='{self.user_name}', system_id='{self.system_wide_identifier}', version={getattr(self, 'sa_version', None)})>"
 
 class HealthcareRecord(Base):
     __versioned__ = {}
     __tablename__ = 'healthcare_records'
 
     record_id = Column(Integer, primary_key=True)
-    patient_user_id = Column(Integer, ForeignKey('users.user_id', ondelete='CASCADE'), unique=True, nullable=False, index=True)
+    patient_user_id = Column(Integer, ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False, index=True)
     record_data = Column(JSONB, nullable=False)
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     last_updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     last_updated_by_user_id = Column(Integer, ForeignKey('users.user_id'))
 
-    # Relationship back to the User (patient)
-    patient = relationship("User", back_populates="healthcare_record", foreign_keys=[patient_user_id])
-    # Relationship back to the User who last updated
-    last_updated_by = relationship("User", back_populates="updated_records", foreign_keys=[last_updated_by_user_id])
-    
-
-    # Unique constraint to ensure one current record per patient
-    __table_args__ = (UniqueConstraint('patient_user_id', name='uq_patient_current_record'),)
-
+    # Relationship to User (patient)
+    patient = relationship(
+        "User",
+        foreign_keys=[patient_user_id],
+        back_populates="patient_records"
+    )
+    # Relationship to User (who last updated this record)
+    last_updated_by = relationship(
+        "User",
+        foreign_keys=[last_updated_by_user_id],
+        back_populates="updated_records"
+    )
 
     def __repr__(self):
-        return f"<HealthcareRecord(record_id={self.record_id}, patient_user_id={self.patient_user_id}, version={self.current_version})>"
-
-
+        return f"<HealthcareRecord(record_id={self.record_id}, patient_user_id={self.patient_user_id}, version={getattr(self, 'sa_version', None)})>"
 
 def initialize_database():
     """
@@ -353,7 +360,7 @@ def populate_example_data(engine):
                     address=user_data["address"],
                     hospital_designation=user_data["hospital_designation"]
                 )
-                user.roles.append(roles[user_data["role"]])
+                user.role = roles[user_data["role"]] # Assign single role object
                 session.add(user)
             created_users[user_data["username"]] = user
 
