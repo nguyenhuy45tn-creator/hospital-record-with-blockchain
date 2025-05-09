@@ -206,29 +206,55 @@ def get_health_records(user_system_wide_identifier:uuid.UUID):
             return record
         return None            
 
-def add_user(engine, username:str, password:str, full_name:str, address:str, hospital_designation:str):
+def add_user(engine, username: str, password_plain: str, full_name: str, address: str, hospital_designation: str):
     """
-    Adds a new user to the database.
+    Adds a new user and their login credentials to the database.
 
     Only call after access control is performed
 
     Args:
         engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
-        username (str): The desired username (must be unique).
-        password (str): The hashed password for the user.
+        username (str): The desired username (must be unique for logins).
+        password_plain (str): The user's plain text password
         full_name (str): The user's full name.
         address (str): The user's address.
         hospital_designation (str): The user's hospital designation.
+
+    Raises:
+        ValueError: If the username already exists.
     """
     with Session(engine) as session:
-        new_user = User(username=username, 
-                        hashed_password=password, 
-                        full_name=full_name, 
-                        address=address, 
-                        hospital_designation=hospital_designation)
+        # Check if username (for login) already exists
+        existing_login = session.query(Login).filter_by(user_name=username).first()
+        if existing_login:
+            raise ValueError(f"Login username '{username}' already exists.")
+
+        # Generate salt and hash the password
+        salt = gensalt()
+        hashed_password = hashpw(password_plain.encode('utf-8'), salt)
+
+        # Create the Login instance
+        new_login_entry = Login(
+            user_name=username,
+            hashed_password=hashed_password,
+            salt=salt
+        )
+
+        # Create the User instance
+        new_user = User(
+            full_name=full_name,
+            address=address,
+            hospital_designation=hospital_designation
+        )
+
+        # Associate the User with the Login entry via the relationship
+        # This will also ensure User.user_name is set to new_login_entry.user_name
+        new_user.login_details = new_login_entry
+
+        # Add the new_user to the session.
+        # SQLAlchemy will also add new_login_entry due to the relationship and FK.
         session.add(new_user)
         session.commit()
-        return
         
 
 def add_health_record(engine, user_id:int, record_data:dict, creator_user_id:int):
