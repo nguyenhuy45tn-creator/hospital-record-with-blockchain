@@ -53,56 +53,77 @@ class UserRightChecker:
     def __init__(self, user_right_checker: ABIContract):
         self.user_right_checker = user_right_checker
 
-    def create_user(self, user_id: uint128):
-        assert user_id >=0
-        assert user_id < 2**128
+    def add_role(self, role_name: String[100]):
+
+        assert len(role_name) <= 100
 
         return self.user_right_checker.create_user(user_id)
 
-    def create_user_w_right(self, user_id: uint128, right: String[20]):
-        assert user_id >=0
-        assert user_id < 2**128
-        assert len(right) <= 20, "right description has maximum length of 20"
+    def add_right(self, right: String[100]):
+        assert len(right) <= 100
 
+        return self.user_right_checker.add_right(right)
+
+    def modify_role_right(
+        self, 
+        role_name: String[100], 
+        right: String[100], 
+        has_right: bool
+    ) -> int8:
+        """
+        Assigns or revokes a specific right for a given role.
+
+        Parameters:
+            role_name: The name of the role to modify.
+            right: The name of the right to assign or revoke.
+            has_right: If True, assigns the right. If False, revokes it.
+
+        Returns:
+            1 if the right was successfully modified.
+        -1 if the role does not exist.
+        """
         return (self.user_right_checker
-                        .create_user_w_right(
-                            user_id = user_id, 
+                    .create_user_w_right(
+                            role_name = role_name, 
                             right = right))
 
-    def modify_user_right(self,
-            user_id: uint128, 
-            access_right: String[20], 
-            has_right: bool) -> int8:
-        """ 
-        The contract return 3 code:
-                1: successfully changed the right
-                -1: the user doesn't exist
-                -2: the right doesn't exist for the user
+    def add_role_w_right(
+        self,
+        role_name: String[100], 
+        right: String[100]
+    ) -> int8:
         """
-        assert user_id >=0
-        assert user_id < 2**128
-        assert len(access_right) <= 20, "right description has maximum length of 20"
-        assert isinstance(has_right, bool)
+        Adds a new role and a right if they don't exist,
+        and assigns the right to the role.
 
-        return (self.user_right_checker
-                        .create_user_w_right(
-                            user_id = user_id, 
-                            access_right = access_right))
+        Parameters:
+            role_name: The name of the role to add or update.
+            right: The name of the right to assign.
 
-    def check_user_right(self, 
-                         user_id: uint128, 
-                        access_right: String[20]) -> int8:
+        Returns:
+            Result of the modify_role_right function.
         """
-        The contract return 4 code:
-            1: user has the right
-            0: user doesn't have the right
-            -1: the user doesn't exist
-        """
-        assert user_id >=0
-        assert user_id < 2**128
-        assert len(access_right) <= 20, "right description has maximum length of 20"
 
+        return self.user_right_checker.add_role_w_right(role_name, right)
+    
+    def check_right(self, role_name: String[100], right: String[100]) -> int8:
+
+        """
+    4 output: 
+    -1: role doesn't exist
+    -2: right doesn't exist
+    0: role doesn't have right
+    1: role has right
+    """
+        assert len(role_name) <= 100
+        assert len(right) <= 100
+        
         return (self.user_right_checker
                         .check_user_right(
-                            user_id = user_id, 
-                            access_right = access_right))
+                            role_name,
+                            right
+                        ))
+    
+    def delete_role(self,role_name: String[100]) -> int8:
+        assert len(role_name) <= 100
+        return self.user_right_checker.delete_role(role_name)
