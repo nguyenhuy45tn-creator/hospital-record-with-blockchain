@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     create_engine,
@@ -13,13 +13,16 @@ from sqlalchemy import (
     select
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
-from sqlalchemy.orm import relationship, declarative_base, Session
+from sqlalchemy.orm import relationship, declarative_base, Session, configure_mappers
 from sqlalchemy.sql import func 
-from sqlalchemy_continuum import make_versioned
+from sqlalchemy_continuum import make_versioned, utils as continuum_utils
 from bcrypt import hashpw, checkpw, gensalt
 
 # Define the base class for declarative models
 Base = declarative_base()
+# Initialize sqlalchemy-continuum right after Base definition
+# and before any models are defined.
+make_versioned(user_cls=None)
 
 class Role(Base):
     __tablename__ = 'roles'
@@ -95,7 +98,15 @@ class User(Base):
     )
 
     def __repr__(self):
-        return f"<User(user_name='{self.user_name}', system_id='{self.system_wide_identifier}', version={getattr(self, 'sa_version', None)})>"
+        version_display = None
+        # Check if the instance is persistent (has an ID) before calling count_versions
+        if continuum_utils.is_versioned(self) and self.user_id is not None:
+            try:
+                num_versions = continuum_utils.count_versions(self)
+                version_display = num_versions - 1 if num_versions > 0 else None
+            except Exception: # pragma: no cover (should not happen if persisted and versioned)
+                pass # Keep version_display as None
+        return f"<User(user_name='{self.user_name}', system_id='{self.system_wide_identifier}', version={version_display})>"
 
 class HealthcareRecord(Base):
     __versioned__ = {}
@@ -121,7 +132,15 @@ class HealthcareRecord(Base):
     )
 
     def __repr__(self):
-        return f"<HealthcareRecord(record_id={self.record_id}, patient_user_id={self.patient_user_id}, version={getattr(self, 'sa_version', None)})>"
+        version_display = None
+        # Check if the instance is persistent (has an ID) before calling count_versions
+        if continuum_utils.is_versioned(self) and self.record_id is not None:
+            try:
+                num_versions = continuum_utils.count_versions(self)
+                version_display = num_versions - 1 if num_versions > 0 else None
+            except Exception: # pragma: no cover (should not happen if persisted and versioned)
+                pass # Keep version_display as None
+        return f"<HealthcareRecord(record_id={self.record_id}, patient_user_id={self.patient_user_id}, version={version_display})>"
 
 def initialize_database():
     """
@@ -135,7 +154,7 @@ def initialize_database():
         sqlalchemy.engine.Engine: The created SQLAlchemy engine instance.
     """
     DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/sampledb"
-    make_versioned(user_cls=None) 
+    configure_mappers() # Ensure all mappers are configured before creating tables
     engine = create_engine(DATABASE_URL)
     Base.metadata.create_all(engine)
 
@@ -201,7 +220,7 @@ def get_health_records(engine, user_system_wide_identifier:uuid.UUID):
     """
     with Session(engine) as session:
         query = select(User).where(User.system_wide_identifier == user_system_wide_identifier)
-        user = session.execute(query).scalar_one_or_none() # Use scalar_one_or_none to handle user not found
+        user = session.execute(query).scalar_one_or_none()
         if user:
             query = select(HealthcareRecord).where(HealthcareRecord.patient_user_id == user.user_id)
             records = session.execute(query).scalars().all()
@@ -297,7 +316,7 @@ def update_health_record(engine, user_id:int, record_id:int, record_data:dict):
         record = session.execute(query).scalar_one()
         if record:
             record.record_data = record_data
-            record.last_updated_at = datetime.now()
+            record.last_updated_at = datetime.now(timezone.utc)
             record.last_updated_by_user_id = user_id
             session.commit()
             return
@@ -416,7 +435,7 @@ if __name__ == '__main__':
     try:
         engine = initialize_database()
         print("Database initialized.")
-        populate_example_data(engine) # Call the population function
+        populate_example_data(engine)
 
     except Exception as e:
         print(f"An error occurred: {e}")
