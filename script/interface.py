@@ -53,6 +53,7 @@ class RoleRightChecker:
     def __init__(self, user_right_checker: ABIContract):
         self.user_right_checker = user_right_checker
 
+
     def add_role(self, role_name: String[100]):
 
         assert len(role_name) <= 100
@@ -138,3 +139,11 @@ class RoleRightChecker:
     def delete_right(self, right: String[100]) -> int8:
         assert len(right) <= 100
         return self.user_right_checker.delete_right(right)
+    
+    def view_roles(self) -> list[str]:
+        num_roles:int = self.user_right_checker.view_num_roles()
+        return [self.user_right_checker.role_list(i) for i in range(num_roles)]
+    
+    def view_rights(self) -> list[str]:
+        num_rights:int = self.user_right_checker.view_num_rights()
+        return [self.user_right_checker.right_list(i) for i in range(num_rights)]

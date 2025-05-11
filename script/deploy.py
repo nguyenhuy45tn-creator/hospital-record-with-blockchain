@@ -2,12 +2,12 @@ from src import RoleRightChecker
 from script.interface import RoleRightChecker as i_RoleRightChecker
 
 def deploy() -> i_RoleRightChecker:
-    user_right_checker: i_RoleRightChecker = RoleRightChecker.deploy()
-    return user_right_checker
+    user_right_checker = RoleRightChecker.deploy()
+    return i_RoleRightChecker(user_right_checker)
 
 def moccasin_main() -> i_RoleRightChecker:
     user_right_checker = deploy()
-    
+
     from script.interface import RoleRightChecker
     user_right_checker = RoleRightChecker(user_right_checker)
 
@@ -26,13 +26,15 @@ def moccasin_main() -> i_RoleRightChecker:
     result = user_right_checker.check_right("nurse", "read_patient_data")
     print(f"Code: {result}.")
 
+    user_right_checker.add_role_w_right("nurse", "read_patient_data")
+
 
     #user_right_checker.add_role_w_right("doctor", "write_patient_data")
     print("check user right to read_patient_information. Should be false (code 0).")
     result = user_right_checker.check_right("patient","read_patient_data")
     print(f"Code: {result}.")
-    print()
-    user_right_checker.add_role_w_right("nurse", "read_patient_data")
+    
+    
     print("check user right to read_patient_information. Should be true(code 1).")
     result = user_right_checker.check_right("nurse", "read_patient_data")
     print(f"Code: {result}.")

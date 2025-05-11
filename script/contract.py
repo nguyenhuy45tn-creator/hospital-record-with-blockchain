@@ -40,4 +40,8 @@ print("check user right to read_patient_information. Should be true(code 1).")
 result = user_right_checker.check_right("nurse", "read_patient_data")
 print(f"Code: {result}.")
 
+print("role list")
+print(user_right_checker.role_list)
+print(type(user_right_checker.role_list))
+
 
