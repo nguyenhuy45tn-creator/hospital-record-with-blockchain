@@ -60,23 +60,6 @@ def add_role(role_name: String[100]):
     self.role_exists[role_name] = True
     self.current_num_role += 1
 
-@internal
-def add_role_int(role_name: String[100]):
-    """
-    Adds a new role to the system. This role does not have any rights by default.
-    
-    Parameters:
-        role_name: Name of the role to add.
-        
-    Returns:
-        1 on successful addition.
-    """
-    self.role_list.append(role_name)
-    self.role_position[role_name] = self.current_num_role
-    self.role_exists[role_name] = True
-    self.current_num_role += 1
-
-
 # Add a new access right to the system
 @external
 def add_right(right: String[100]):
@@ -94,22 +77,6 @@ def add_right(right: String[100]):
     self.right_exists[right] = True
     self.current_num_right += 1
 
-# Add a new access right to the system
-@internal
-def add_right_int(right: String[100]):
-    """
-    Adds a new access right to the system.
-
-    Parameters:
-        right: Name of the access right to add.
-    
-    Returns:
-        1 on successful addition.
-    """
-    self.right_list.append(right)
-    self.right_position[right] = self.current_num_right
-    self.right_exists[right] = True
-    self.current_num_right += 1
 
 # Modify whether a role has a certain right
 @external
@@ -135,55 +102,6 @@ def modify_role_right(
     
     self.role_right_mapping[role_name][right] = has_right
     return 1
-
-@internal
-def modify_role_right_int(
-        role_name: String[100], 
-        right: String[100], 
-        has_right: bool
-) -> int8:
-    """
-    Assigns or revokes a specific right for a given role.
-
-    Parameters:
-        role_name: The name of the role to modify.
-        right: The name of the right to assign or revoke.
-        has_right: If True, assigns the right. If False, revokes it.
-
-    Returns:
-        1 if the right was successfully modified.
-       -1 if the role does not exist.
-    """
-    if not self.role_exists[role_name]:
-        return -1
-    
-    self.role_right_mapping[role_name][right] = has_right
-    return 1
-
-# Add a role and immediately assign it a right
-@external
-def add_role_w_right(
-        role_name: String[100], 
-        right: String[100]
-) -> int8:
-    """
-    Adds a new role and a right if they don't exist,
-    and assigns the right to the role.
-
-    Parameters:
-        role_name: The name of the role to add or update.
-        right: The name of the right to assign.
-
-    Returns:
-        Result of the modify_role_right function.
-    """
-    if not self.role_exists[role_name]:
-        self.add_role_int(role_name)
-
-    if not self.right_exists[right]:
-        self.add_right_int(right)
-
-    return self.modify_role_right_int(role_name, right, True)
 
 @external
 @view
