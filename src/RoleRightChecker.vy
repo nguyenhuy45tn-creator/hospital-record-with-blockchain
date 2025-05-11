@@ -10,26 +10,26 @@
 # State Variables
 
 # Track the total number of roles and rights added.
-current_num_role: uint8
-current_num_right: uint8
+current_num_role: uint16
+current_num_right: uint16
 
 # List of all added access rights (e.g., "READ", "WRITE")
-right_list: public(DynArray[String[100], 2**8])
+right_list: public(DynArray[String[100], 2**16])
 
 # Check if a right exists in the system
 right_exists: public(HashMap[String[100], bool])
 
 # Position of a right in the right_list array for quick access
-right_position: public(HashMap[String[100], uint8])
+right_position: public(HashMap[String[100], uint16])
 
 # List of all added roles (e.g., "Admin", "User")
-role_list: public(DynArray[String[100], 2**8])
+role_list: public(DynArray[String[100], 2**16])
 
 # Check if a role exists in the system
 role_exists: public(HashMap[String[100], bool])
 
 # Position of a role in the role_list array for quick access
-role_position: public(HashMap[String[100], uint8])
+role_position: public(HashMap[String[100], uint16])
 
 # Mapping between a role and its associated rights
 # E.g., role_right_mapping["Admin"]["WRITE"] = True
@@ -128,15 +128,12 @@ def check_right(role_name: String[100], right: String[100]) -> int8:
 @external
 def delete_role(role_name: String[100]) -> int8:
 
-    role_idx: uint8 = self.role_position[role_name]
-    role_idx_256: uint256 = convert(role_idx, uint256)
+    role_idx: uint16 = self.role_position[role_name]
 
     if not(self.role_list[role_idx] == role_name):
         return -1
-    
-    for i: uint256 in range(len(self.role_list), bound=2**8):
-        if i >= role_idx_256:
-            self.role_list[i] = self.role_list[i+1] 
+
+    self.role_list[role_idx] = ""
 
     self.role_exists[role_name] = False
 
@@ -148,15 +145,12 @@ def delete_role(role_name: String[100]) -> int8:
 @external
 def delete_right(right: String[100]) -> int8:
 
-    right_idx: uint8 = self.right_position[right]
-    right_idx_256: uint256 = convert(right_idx, uint256)
+    right_idx: uint16 = self.right_position[right]
 
     if not(self.right_list[right_idx] == right):
         return -1
     
-    for i: uint256 in range(len(self.right_list), bound=2**8):
-        if i >= right_idx_256:
-            self.right_list[i] = self.right_list[i+1] 
+    self.right_list[right_idx] = ""
 
     self.right_exists[right] = False
 
@@ -164,3 +158,17 @@ def delete_right(right: String[100]) -> int8:
         self.role_right_mapping[role][right] = False
 
     return 1
+
+@external
+@view
+def view_num_rights() -> uint256:
+    return len(self.right_list)
+
+@external
+@view
+def view_num_roles() -> uint256:
+    return len(self.role_list)
+
+
+    
+
