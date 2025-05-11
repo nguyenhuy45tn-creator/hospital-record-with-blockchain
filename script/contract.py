@@ -12,7 +12,7 @@ active_network = config.get_active_network()
 # Get the latest counter of the Counter contract
 user_right_checker = RoleRightChecker(
                         active_network
-                        .get_latest_contract_unchecked("RoleRightChecker"))
+                        .get_latest_contract_checked("RoleRightChecker"))
 
 # if user_right_checker is None:
 #     boa.set_network_env("http://127.0.0.1:8545")
@@ -30,7 +30,7 @@ result = user_right_checker.check_right("nurse", "read_patient_data")
 print(f"Code: {result}.")
 
 
-#user_right_checker.add_role_w_right("doctor", "write_patient_data")
+user_right_checker.add_role_w_right("doctor", "write_patient_data")
 print("check user right to read_patient_information. Should be false (code 0).")
 result = user_right_checker.check_right("patient","read_patient_data")
 print(f"Code: {result}.")
@@ -41,7 +41,7 @@ result = user_right_checker.check_right("nurse", "read_patient_data")
 print(f"Code: {result}.")
 
 print("role list")
-print(user_right_checker.role_list)
-print(type(user_right_checker.role_list))
+
+
 
 
