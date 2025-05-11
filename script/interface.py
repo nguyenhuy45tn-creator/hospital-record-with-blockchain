@@ -57,7 +57,7 @@ class RoleRightChecker:
 
         assert len(role_name) <= 100
 
-        return self.user_right_checker.create_user(user_id)
+        return self.user_right_checker.create_user(role_name)
 
     def add_right(self, right: String[100]):
         assert len(right) <= 100
@@ -109,12 +109,12 @@ class RoleRightChecker:
     def check_right(self, role_name: String[100], right: String[100]) -> int8:
 
         """
-    4 output: 
-    -1: role doesn't exist
-    -2: right doesn't exist
-    0: role doesn't have right
-    1: role has right
-    """
+        4 output: 
+        -1: role doesn't exist
+        -2: right doesn't exist
+        0: role doesn't have right
+        1: role has right
+        """
         assert len(role_name) <= 100
         assert len(right) <= 100
         
@@ -127,3 +127,7 @@ class RoleRightChecker:
     def delete_role(self,role_name: String[100]) -> int8:
         assert len(role_name) <= 100
         return self.user_right_checker.delete_role(role_name)
+    
+    def delete_right(self, right: String[100]) -> int8:
+        assert len(right) <= 100
+        return self.user_right_checker.delete_r(right)
