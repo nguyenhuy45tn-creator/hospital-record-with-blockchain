@@ -1,0 +1,2 @@
+PATIENT = "patient"
+DOCTOR = "doctor"

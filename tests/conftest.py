@@ -1,15 +1,8 @@
 import pytest
 from script.deploy import deploy
-
+from script.rights import READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA
+from script.roles import PATIENT, DOCTOR
 from script.db_connection import Base, initialize_database
-
-@pytest.fixture
-def user_right_checker():
-    contract = deploy()
-    contract.create_user(2)
-    contract.create_user_w_right(1, "write_patient_data")
-    contract.create_user_w_right(1, "read_patient_data")
-    return contract
 
 @pytest.fixture
 def db_engine():

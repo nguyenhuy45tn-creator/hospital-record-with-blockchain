@@ -16,6 +16,9 @@ chain_id = 31337
 [networks.sepolia]
 url = "https://ethereum-sepolia-rpc.publicnode.com"
 chain_id = 11155111
+default_account_name = "SepAcc"
+save_to_db = true
+
 
 [networks.zksync-sepolia]
 url = "https://sepolia.era.zksync.dev"

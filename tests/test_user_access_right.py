@@ -1,17 +1,69 @@
-def test_query_user_exist_full_right(user_right_checker):
+import pytest
+from script.deploy import deploy
+from script.rights import READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA
+from script.roles import PATIENT, DOCTOR
 
-    result = user_right_checker.check_user_right(1, "read_patient_data")
+@pytest.fixture
+def role_right_checker():
+    contract = deploy()
+    contract.add_role(PATIENT)
+    contract.add_right(READ_PATIENT_BASIC_DATA)
+    contract.add_right(WRITE_PATIENT_BASIC_DATA)
+    contract.add_role_w_right(role_name=DOCTOR, right= READ_PATIENT_HEALTHCARE_RECORD_DATA)
+    contract.add_role_w_right(role_name=DOCTOR, right= WRITE_PATIENT_HEALTHCARE_RECORD_DATA)
+    return contract
+
+def test_1(role_right_checker):
+    """
+    test: role exist, right exist, no access granted
+    """
+    result = role_right_checker.check_right(DOCTOR, READ_PATIENT_BASIC_DATA)
+
+    #expect 0 since the right and roles exist, but role isn't granted right
+    assert result == 0 
+
+def test_2(role_right_checker):
+    """
+    test: role exist, right exist, access granted
+    """
+    result = role_right_checker.check_right(DOCTOR, READ_PATIENT_HEALTHCARE_RECORD_DATA)
 
     assert result == 1
 
-def test_query_user_doesnt_exist(user_right_checker):
+def test_3(role_right_checker):
+    """
+    test: role doesn't exist, right exist, access not granted
+    """
+    result = role_right_checker.check_right("nurse", READ_PATIENT_BASIC_DATA)
 
-    result = user_right_checker.check_user_right(3, "read_patient_data")
+    assert result == -1 # role doesn't exist
 
-    assert result == -1
+def test_4(role_right_checker):
+    """
+    test: role exists, right doens't exist, access not granted
+    """
+    result = role_right_checker.check_right(DOCTOR, "examine_patient")
 
-def test_query_user_exists_no_right(user_right_checker):
+    assert result == -2 # role exist but right doesn't exist
 
-    result = user_right_checker.check_user_right(2, "read_patient_data")
+def test_view_roles(role_right_checker):
+    role_list = role_right_checker.view_roles()
+    assert role_list == [PATIENT, DOCTOR], role_list
 
-    assert result == 0, f"the funciton gives {result}"
+def test_view_rights(role_right_checker):
+    right_list =  role_right_checker.view_rights()
+    assert right_list == [READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA], right_list
+
+def test_delete_role(role_right_checker):
+    """
+    test_deleting_right
+    """
+
+    if role_right_checker.delete_role(DOCTOR) == -1:
+        raise "WRONG INDEX"
+    
+    assert role_right_checker.check_right(DOCTOR, READ_PATIENT_HEALTHCARE_RECORD_DATA) == -1
+
+    assert role_right_checker.view_roles() == [PATIENT, ""], role_right_checker.view_roles()
+
+    
