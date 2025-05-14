@@ -8,8 +8,6 @@ from datetime import datetime
 import json
 from script.interface import Logger, Log
 
-
-
 config = get_config()
 active_network = config.get_active_network()
 # Get the latest counter of the Counter contract
@@ -22,27 +20,40 @@ def logged(logger: Logger= _logger):
     def _inner_logged(func):
         @wraps(func)
         def with_logging(*args, **kwargs):
+
             try:
                 value = func(*args, **kwargs)
                 log = Log(func, 
-                          result = "Success", 
-                          output = value, 
+                          result = "Success",
                           args=args, 
                           kwargs=kwargs)
-            except Exception as e:
-                result = f"Failed - {e}"
-                log = Log(func, 
-                          result = "Error", 
-                          output = str(e), 
-                          args=args, 
-                          kwargs=kwargs)
-            logger.add_log(
+                logger.add_log(
                         json.dumps(
                             log.__dict__,
                             indent=4
                             )
                     )
-            return value
+                return value
+            except Exception as e:
+
+                log = Log(func, 
+                          result = "Error", 
+                        #   in dailure case, we log the error message
+                        #   but not in sucess case since not all output
+                        #   are json serializable. 
+                          output = repr(e), 
+                          args=args, 
+                          kwargs=kwargs)
+                logger.add_log(
+                        json.dumps(
+                            log.__dict__,
+                            indent=4
+                            )
+                    )
+                raise e
+            print("----------",log.output)
+           
+            
         return with_logging
     return _inner_logged
 
