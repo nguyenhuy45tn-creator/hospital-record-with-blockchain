@@ -167,10 +167,11 @@ class Logger:
 
 
 class Log:
-    def __init__(self, func, result, output, args, kwargs):
+    def __init__(self, func, result, args, kwargs, output = None):
         self.ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.func = func.__name__
         self.args = args
         self.kwargs = kwargs
         self.result = result
-        self.output = output
+        if output is not None:
+            self.output = output
