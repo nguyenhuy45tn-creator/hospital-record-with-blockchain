@@ -23,20 +23,20 @@ from script.db_connection import (
 
 # Expected data from populate_example_data
 EXPECTED_ROLES = {
-    "Patient": "A patient user, can read own records.",
-    "Doctor": "A medical doctor, can read/edit patient records.",
-    "Nurse": "A nurse, can read/edit patient records.",
-    "Admin": "An administrator, can manage users and roles."
+    "patient": "A patient user, can read own records.",
+    "doctor": "A medical doctor, can read/edit patient records.",
+    "nurse": "A nurse, can read/edit patient records.",
+    "admin": "An administrator, can manage users and roles."
 }
 
 EXPECTED_USERS_DATA = [
-    {"username": "patient_alice", "password": "password123", "full_name": "Alice Wonderland", "address": "123 Rabbit Hole", "hospital_designation": "Patient", "role": "Patient"},
-    {"username": "doctor_bob", "password": "password123", "full_name": "Dr. Bob Smith", "address": "456 Health St", "hospital_designation": "General Practitioner", "role": "Doctor"},
-    {"username": "nurse_carol", "password": "password123", "full_name": "Carol Danvers", "address": "789 Care Ave", "hospital_designation": "Registered Nurse", "role": "Nurse"},
-    {"username": "admin_dave", "password": "password123", "full_name": "Dave Administrator", "address": "1 Admin Plaza", "hospital_designation": "System Admin", "role": "Admin"},
+    {"username": "patient_alice", "password": "password123", "full_name": "Alice Wonderland", "address": "123 Rabbit Hole", "hospital_designation": "Patient", "role": "patient"},
+    {"username": "doctor_bob", "password": "password123", "full_name": "Dr. Bob Smith", "address": "456 Health St", "hospital_designation": "General Practitioner", "role": "doctor"},
+    {"username": "nurse_carol", "password": "password123", "full_name": "Carol Danvers", "address": "789 Care Ave", "hospital_designation": "Registered Nurse", "role": "nurse"},
+    {"username": "admin_dave", "password": "password123", "full_name": "Dave Administrator", "address": "1 Admin Plaza", "hospital_designation": "System Admin", "role": "admin"},
 ]
 
-EXPECTED_HEALTH_RECORD_PATIENT_USERNAME = "patient_alice"
+EXPECTED_HEALTH_RECORD_patient_USERNAME = "patient_alice"
 EXPECTED_HEALTH_RECORD_UPDATER_USERNAME = "doctor_bob"
 EXPECTED_HEALTH_RECORD_DATA = {
     "allergies": ["Penicillin"],
@@ -102,9 +102,9 @@ def test_populate_creates_health_record(db_engine):
     populate_example_data(db_engine)
     with Session(db_engine) as session:
         patient_user = session.execute(
-            select(User).where(User.user_name == EXPECTED_HEALTH_RECORD_PATIENT_USERNAME)
+            select(User).where(User.user_name == EXPECTED_HEALTH_RECORD_patient_USERNAME)
         ).scalar_one_or_none()
-        assert patient_user is not None, f"Patient user '{EXPECTED_HEALTH_RECORD_PATIENT_USERNAME}' not found."
+        assert patient_user is not None, f"patient user '{EXPECTED_HEALTH_RECORD_patient_USERNAME}' not found."
 
         updater_user = session.execute(
             select(User).where(User.user_name == EXPECTED_HEALTH_RECORD_UPDATER_USERNAME)
@@ -115,7 +115,7 @@ def test_populate_creates_health_record(db_engine):
             select(HealthcareRecord).where(HealthcareRecord.patient_user_id == patient_user.user_id)
         ).scalars().all()
 
-        assert len(health_records) == 1, f"Incorrect number of health records for patient '{EXPECTED_HEALTH_RECORD_PATIENT_USERNAME}'."
+        assert len(health_records) == 1, f"Incorrect number of health records for patient '{EXPECTED_HEALTH_RECORD_patient_USERNAME}'."
         
         record = health_records[0]
         assert record.patient_user_id == patient_user.user_id
@@ -148,8 +148,11 @@ def test_populate_is_idempotent(db_engine):
     assert count_logins1 == count_logins2, "Login count changed on second run."
     assert count_records1 == count_records2, "HealthcareRecord count changed on second run."
 
-def test_get_single_user_success(db_engine):
+def test_get_single_user_success(db_engine, role_right_checker_db_connection):
     """Tests retrieving an existing user by system_wide_identifier."""
+    populate_example_data(db_engine) # Ensure requestee 'doctor_bob' and roles exist
+    requestee_username = "doctor_bob" # Has READ_PATIENT_BASIC_DATA
+
     with Session(db_engine) as session:
         # Setup: Create a role and login for the user
         role_name = "TestRoleForGetSingle"
@@ -184,108 +187,89 @@ def test_get_single_user_success(db_engine):
         user_swid = test_user.system_wide_identifier # Get the auto-generated SWID
 
     # Call the function under test
-    retrieved_user = get_single_user(db_engine, user_swid)
+    retrieved_user = get_single_user(db_engine, role_right_checker_db_connection, requestee_username, user_swid)
 
     assert retrieved_user is not None
     assert retrieved_user.system_wide_identifier == user_swid
     assert retrieved_user.full_name == "Get Single Test User"
     assert retrieved_user.user_name == login_username
 
-def test_get_single_user_not_found(db_engine):
-    """Tests that NoResultFound is raised when user with SWID does not exist."""
+def test_get_single_user_not_found(db_engine, role_right_checker_db_connection):
+    """Tests that ValueError is raised when user with SWID does not exist."""
+    populate_example_data(db_engine) # Ensure requestee 'doctor_bob' exists
+    requestee_username = "doctor_bob"
+
     non_existent_swid = uuid.uuid4() # Generate a random UUID that won't exist
-    with pytest.raises(NoResultFound):
-        get_single_user(db_engine, non_existent_swid)
+    with pytest.raises(ValueError, match=f"User with SWID '{non_existent_swid}' not found."):
+        get_single_user(db_engine, role_right_checker_db_connection, requestee_username, non_existent_swid)
 
-def test_get_all_users_empty(db_engine):
-    """Tests that get_all_users returns an empty list when no users exist."""
-    # Ensure the database is clean for this test or that no users are added.
-    # The db_engine fixture should provide a clean slate.
-    users = get_all_users(db_engine)
-    assert isinstance(users, list)
-    assert len(users) == 0
 
-def test_get_all_users_with_data(db_engine):
+def test_get_all_users_with_data(db_engine, role_right_checker_db_connection):
     """Tests retrieving all users when some users exist."""
-    with Session(db_engine) as session:
-        # Setup: Create roles and logins for the users
-        role_name1 = "TestRoleForAll1"
-        role1 = session.query(Role).filter_by(role_name=role_name1).first()
-        if not role1:
-            role1 = Role(role_name=role_name1, description="Test role 1")
-            session.add(role1)
+    populate_example_data(db_engine) # Populates users, including doctor_bob
+    requestee_username = "doctor_bob" # Has READ_PATIENT_BASIC_DATA
 
-        role_name2 = "TestRoleForAll2"
-        role2 = session.query(Role).filter_by(role_name=role_name2).first()
-        if not role2:
-            role2 = Role(role_name=role_name2, description="Test role 2")
-            session.add(role2)
-        session.commit()
-        role1 = session.merge(role1)
-        role2 = session.merge(role2)
+    # Data is populated by populate_example_data, let's check against that
+    # Or add more users if needed for the test's specific scenario
+    # For this test, populate_example_data provides enough users.
 
-        login1 = Login(user_name="all_user1", hashed_password=b"pass1", salt=b"salt1")
-        login2 = Login(user_name="all_user2", hashed_password=b"pass2", salt=b"salt2")
-        session.add_all([login1, login2])
-        session.commit()
-        login1 = session.merge(login1)
-        login2 = session.merge(login2)
-
-        # Create users
-        user1 = User(full_name="All User One", login_details=login1, role=role1)
-        user2 = User(full_name="All User Two", login_details=login2, role=role2)
-        session.add_all([user1, user2])
-        session.commit()
-
-        user1_swid = user1.system_wide_identifier
-        user2_swid = user2.system_wide_identifier
-
-    # Call the function under test
-    retrieved_users = get_all_users(db_engine)
+    retrieved_users = get_all_users(db_engine, role_right_checker_db_connection, requestee_username)
 
     assert isinstance(retrieved_users, list)
-    assert len(retrieved_users) == 2
+    assert len(retrieved_users) == len(EXPECTED_USERS_DATA)
     
-    retrieved_swids = {user.system_wide_identifier for user in retrieved_users}
-    assert user1_swid in retrieved_swids
-    assert user2_swid in retrieved_swids
+    retrieved_usernames = {user.user_name for user in retrieved_users}
+    expected_usernames = {data["username"] for data in EXPECTED_USERS_DATA}
+    assert retrieved_usernames == expected_usernames
 
-def test_get_health_records_user_not_found(db_engine):
-    """Tests that an empty list is returned when the user SWID does not exist."""
+def test_get_health_records_user_not_found(db_engine, role_right_checker_db_connection):
+    """Tests that ValueError is raised when the patient user SWID does not exist."""
+    populate_example_data(db_engine) # For requestee doctor_bob
+    requestee_username = "doctor_bob" # Has READ_PATIENT_HEALTHCARE_RECORD_DATA
+
     non_existent_swid = uuid.uuid4()
-    records = get_health_records(db_engine, non_existent_swid)
-    assert isinstance(records, list)
-    assert len(records) == 0
+    with pytest.raises(ValueError, match=f"Patient with SWID '{non_existent_swid}' not found."):
+        get_health_records(db_engine, role_right_checker_db_connection, requestee_username, non_existent_swid)
 
-def test_get_health_records_user_exists_no_records(db_engine):
+def test_get_health_records_user_exists_no_records(db_engine, role_right_checker_db_connection):
     """Tests that an empty list is returned when the user exists but has no health records."""
-    with Session(db_engine) as session:
-        role = Role(role_name="PatientRoleForNoRecords", description="Test role")
-        login = Login(user_name="patient_no_records", hashed_password=b"pw", salt=b"s")
-        session.add_all([role, login])
-        session.commit()
-        role = session.merge(role)
+    populate_example_data(db_engine) # For requestee doctor_bob and "patient" role
+    requestee_username = "doctor_bob"
 
-        patient_user = User(full_name="No Records Patient", login_details=login, role=role)
+    with Session(db_engine) as session:
+        # Ensure "patient" role exists for the new patient user
+        patient_role_obj = session.query(Role).filter_by(role_name="patient").first()
+        assert patient_role_obj is not None, "Patient role not found from populate_example_data"
+
+        login = Login(user_name="patient_no_records", hashed_password=b"pw", salt=b"s")
+        session.add(login)
+        session.commit()
+        login = session.merge(login)
+
+        patient_user = User(full_name="No Records patient", login_details=login, role=patient_role_obj)
         session.add(patient_user)
         session.commit()
         patient_swid = patient_user.system_wide_identifier
 
-    records = get_health_records(db_engine, patient_swid)
+    records = get_health_records(db_engine, role_right_checker_db_connection, requestee_username, patient_swid)
     assert isinstance(records, list)
     assert len(records) == 0
 
-def test_get_health_records_user_exists_with_one_record(db_engine):
+def test_get_health_records_user_exists_with_one_record(db_engine, role_right_checker_db_connection):
     """Tests retrieving a single health record for an existing user."""
-    with Session(db_engine) as session:
-        # Setup patient
-        patient_role = Role(role_name="PatientRoleWithRecord", description="Test role")
-        patient_login = Login(user_name="patient_with_record", hashed_password=b"pw", salt=b"s")
-        session.add_all([patient_role, patient_login])
-        session.commit()
-        patient_role = session.merge(patient_role)
+    populate_example_data(db_engine) # For requestee doctor_bob and "patient" role
+    requestee_username = "doctor_bob"
 
-        patient_user = User(full_name="Patient With Record", login_details=patient_login, role=patient_role)
+    with Session(db_engine) as session:
+        patient_role_obj = session.query(Role).filter_by(role_name="patient").first()
+        assert patient_role_obj is not None
+
+        patient_login = Login(user_name="patient_with_record", hashed_password=b"pw", salt=b"s")
+        session.add(patient_login)
+        session.commit()
+        patient_login = session.merge(patient_login)
+
+        patient_user = User(full_name="patient With Record", login_details=patient_login, role=patient_role_obj)
         session.add(patient_user)
         session.commit()
         patient_swid = patient_user.system_wide_identifier
@@ -305,24 +289,28 @@ def test_get_health_records_user_exists_with_one_record(db_engine):
         session.commit()
         record_id = health_record.record_id
 
-    retrieved_records = get_health_records(db_engine, patient_swid)
+    retrieved_records = get_health_records(db_engine, role_right_checker_db_connection, requestee_username, patient_swid)
     assert isinstance(retrieved_records, list)
     assert len(retrieved_records) == 1
     assert retrieved_records[0].record_id == record_id
     assert retrieved_records[0].record_data == record_data
     assert retrieved_records[0].patient_user_id == patient_id
 
-def test_get_health_records_user_exists_with_multiple_records(db_engine):
+def test_get_health_records_user_exists_with_multiple_records(db_engine, role_right_checker_db_connection):
     """Tests retrieving multiple health records for an existing user."""
-    with Session(db_engine) as session:
-        # Setup patient
-        patient_role = Role(role_name="PatientRoleMultiRecords", description="Test role")
-        patient_login = Login(user_name="patient_multi_records", hashed_password=b"pw", salt=b"s")
-        session.add_all([patient_role, patient_login])
-        session.commit()
-        patient_role = session.merge(patient_role)
+    populate_example_data(db_engine) # For requestee doctor_bob and "patient" role
+    requestee_username = "doctor_bob"
 
-        patient_user = User(full_name="Patient Multi Records", login_details=patient_login, role=patient_role)
+    with Session(db_engine) as session:
+        patient_role_obj = session.query(Role).filter_by(role_name="patient").first()
+        assert patient_role_obj is not None
+
+        patient_login = Login(user_name="patient_multi_records", hashed_password=b"pw", salt=b"s")
+        session.add(patient_login)
+        session.commit()
+        patient_login = session.merge(patient_login)
+
+        patient_user = User(full_name="patient Multi Records", login_details=patient_login, role=patient_role_obj)
         session.add(patient_user)
         session.commit()
         patient_swid = patient_user.system_wide_identifier
@@ -341,7 +329,7 @@ def test_get_health_records_user_exists_with_multiple_records(db_engine):
         record1_id = record1.record_id
         record2_id = record2.record_id
 
-    retrieved_records = get_health_records(db_engine, patient_swid)
+    retrieved_records = get_health_records(db_engine, role_right_checker_db_connection, requestee_username, patient_swid)
     assert isinstance(retrieved_records, list)
     assert len(retrieved_records) == 2
 
@@ -353,57 +341,49 @@ def test_get_health_records_user_exists_with_multiple_records(db_engine):
     # assert any(rec.record_data == record_data1 for rec in retrieved_records)
     # assert any(rec.record_data == record_data2 for rec in retrieved_records)
 
-def test_add_user_success(db_engine):
+def test_add_user_success(db_engine, role_right_checker_db_connection):
     """Tests successfully adding a new user."""
-    username = "new_test_user"
-    password = "password123"
+    populate_example_data(db_engine) # For requestee doctor_bob and "patient" role
+    requestee_username = "doctor_bob" # Has WRITE_PATIENT_BASIC_DATA
+
     full_name = "New Test User Fullname"
     address = "123 Test Street"
     hospital_designation = "Test Designee"
+    role_for_new_user = "patient" # Role name must exist in Roles table
 
-    add_user(db_engine, username, password, full_name, address, hospital_designation)
+    # Call the function under test
+    generated_username, generated_password = add_user(
+        db_engine, role_right_checker_db_connection, requestee_username,
+        full_name, address, hospital_designation, role_for_new_user
+    )
+
+    assert isinstance(generated_username, str) and len(generated_username) > 0
+    assert isinstance(generated_password, str) and len(generated_password) > 0
 
     with Session(db_engine) as session:
+        # Role object for assertion
+        patient_role_obj = session.query(Role).filter_by(role_name=role_for_new_user).one()
+
         # Check Login entry
-        login_entry = session.query(Login).filter_by(user_name=username).one_or_none()
+        login_entry = session.query(Login).filter_by(user_name=generated_username).one_or_none()
         assert login_entry is not None, "Login entry was not created."
-        assert login_entry.user_name == username
+        assert login_entry.user_name == generated_username
         assert login_entry.salt is not None
-        assert checkpw(password.encode('utf-8'), login_entry.hashed_password), "Password verification failed."
+        assert checkpw(generated_password.encode('utf-8'), login_entry.hashed_password), "Password verification failed."
 
         # Check User entry
-        user_entry = session.query(User).filter_by(user_name=username).one_or_none()
+        user_entry = session.query(User).filter_by(user_name=generated_username).one_or_none()
         assert user_entry is not None, "User entry was not created."
         assert user_entry.full_name == full_name
         assert user_entry.address == address
         assert user_entry.hospital_designation == hospital_designation
-        assert user_entry.user_name == username
+        assert user_entry.user_name == generated_username
         assert user_entry.login_details == login_entry
         assert login_entry.user == user_entry
-        assert user_entry.role is None, "User should not have a role assigned by default by add_user."
-        assert user_entry.user_role_name is None
+        assert user_entry.role == patient_role_obj, "User role was not assigned correctly."
+        assert user_entry.user_role_name == role_for_new_user
 
-def test_add_user_duplicate_username(db_engine):
-    """Tests that adding a user with a duplicate username raises ValueError."""
-    username = "duplicate_user_test"
-    password = "password123"
-    full_name = "Duplicate User"
-    address = "456 Duplicate Ave"
-    hospital_designation = "Duplicate Designee"
-
-    # Add the user for the first time
-    add_user(db_engine, username, password, full_name, address, hospital_designation)
-
-    # Attempt to add the same user again
-    with pytest.raises(ValueError, match=f"Login username '{username}' already exists."):
-        add_user(db_engine, username, "another_password", "Another Name", "Another Address", "Another Designation")
-
-    # Verify only one user and login with that username exists
-    with Session(db_engine) as session:
-        assert session.query(Login).filter_by(user_name=username).count() == 1
-        assert session.query(User).filter_by(user_name=username).count() == 1
-
-def test_add_health_record_success(db_engine):
+def test_add_health_record_success(db_engine, role_right_checker_db_connection):
     """Tests successfully adding a new health record for a user."""
     with Session(db_engine) as session:
         # Setup: Create a patient user and a creator user
@@ -412,28 +392,33 @@ def test_add_health_record_success(db_engine):
         if not role:
             role = Role(role_name=role_name, description="Test role for adding health records")
             session.add(role)
-            session.commit()
-            role = session.merge(role)
+        # Ensure 'doctor' role for creator user
+        doctor_role_name = "doctor"
+        doctor_role = session.query(Role).filter_by(role_name=doctor_role_name).first()
+        if not doctor_role:
+            doctor_role = Role(role_name=doctor_role_name, description="Doctor role for testing")
+            session.add(doctor_role)
+        session.commit()
+        role = session.merge(role) # patient role
+        doctor_role = session.merge(doctor_role) # doctor role
 
         patient_login = Login(user_name="patient_hr_add", hashed_password=b"pw1", salt=b"s1")
         creator_login = Login(user_name="creator_hr_add", hashed_password=b"pw2", salt=b"s2")
         session.add_all([patient_login, creator_login])
         session.commit()
-        patient_login = session.merge(patient_login)
-        creator_login = session.merge(creator_login)
+        patient_login, creator_login = session.merge(patient_login), session.merge(creator_login)
 
-        patient_user = User(full_name="Patient For HR Add", login_details=patient_login, role=role)
-        creator_user = User(full_name="Creator For HR Add", login_details=creator_login, role=role)
+        patient_user = User(full_name="patient For HR Add", login_details=patient_login, role=role)
+        creator_user = User(full_name="Creator For HR Add", login_details=creator_login, role=doctor_role) # Assign doctor role
         session.add_all([patient_user, creator_user])
         session.commit()
 
         patient_user_id = patient_user.user_id
         creator_user_id = creator_user.user_id
+        requestee_username = "creator_hr_add" # This is the username of the creator
 
     record_data = {"symptoms": "headache", "diagnosis": "stress"}
-
-    # Call the function under test
-    add_health_record(db_engine, patient_user_id, record_data, creator_user_id)
+    add_health_record(db_engine, role_right_checker_db_connection, requestee_username, patient_user_id, record_data)
 
     # Verify the record was added
     with Session(db_engine) as session:
@@ -450,14 +435,21 @@ def test_add_health_record_success(db_engine):
         # Check if the timestamp is recent (e.g., within the last few seconds)
         assert (datetime.now(timezone.utc) - added_record.last_updated_at).total_seconds() < 5
 
-def test_update_health_record_success(db_engine):
+def test_update_health_record_success(db_engine, role_right_checker_db_connection):
     """Tests successfully updating an existing health record."""
     with Session(db_engine) as session:
         # Setup: Create patient, initial creator, and updater users
-        role = Role(role_name="TestRoleForUpdateHR", description="Test role for updating HR")
-        session.add(role)
+        # Use existing roles like "patient" and "doctor"
+        patient_role_obj = session.query(Role).filter_by(role_name="patient").first()
+        if not patient_role_obj:
+            patient_role_obj = Role(role_name="patient", description="Patient role")
+            session.add(patient_role_obj)
+        doctor_role_obj = session.query(Role).filter_by(role_name="doctor").first()
+        if not doctor_role_obj:
+            doctor_role_obj = Role(role_name="doctor", description="Doctor role")
+            session.add(doctor_role_obj)
         session.commit()
-        role = session.merge(role)
+        patient_role_obj, doctor_role_obj = session.merge(patient_role_obj), session.merge(doctor_role_obj)
 
         patient_login = Login(user_name="patient_hr_update", hashed_password=b"pw_p", salt=b"s_p")
         initial_creator_login = Login(user_name="creator_hr_initial", hashed_password=b"pw_c", salt=b"s_c")
@@ -467,9 +459,9 @@ def test_update_health_record_success(db_engine):
         patient_login, initial_creator_login, updater_login = \
             session.merge(patient_login), session.merge(initial_creator_login), session.merge(updater_login)
 
-        patient_user = User(full_name="Patient For HR Update", login_details=patient_login, role=role)
-        initial_creator_user = User(full_name="Initial HR Creator", login_details=initial_creator_login, role=role)
-        updater_user = User(full_name="Final HR Updater", login_details=updater_login, role=role)
+        patient_user = User(full_name="patient For HR Update", login_details=patient_login, role=patient_role_obj)
+        initial_creator_user = User(full_name="Initial HR Creator", login_details=initial_creator_login, role=doctor_role_obj)
+        updater_user = User(full_name="Final HR Updater", login_details=updater_login, role=doctor_role_obj) # Updater is a doctor
         session.add_all([patient_user, initial_creator_user, updater_user])
         session.commit()
 
@@ -488,29 +480,32 @@ def test_update_health_record_success(db_engine):
         session.commit()
         record_id_to_update = initial_record.record_id
         original_last_updated_at = initial_record.last_updated_at
+        requestee_username = "updater_hr_final" # Username of the updater
 
     # Data for the update
-    updated_record_data = {"condition": "recovered", "treatment": "none", "notes": "Patient feels better."}
+    updated_record_data = {"condition": "recovered", "treatment": "none", "notes": "patient feels better."}
 
     # Call the function under test
-    update_health_record(db_engine, updater_user_id, record_id_to_update, updated_record_data)
+    update_health_record(db_engine, role_right_checker_db_connection, requestee_username, record_id_to_update, updated_record_data)
 
-    # Verify the record was updated
+    # Verify the record was updated (updater_user_id is the DB ID of the user object 'updater_user')
     with Session(db_engine) as session:
         updated_record = session.query(HealthcareRecord).filter_by(record_id=record_id_to_update).one_or_none()
 
         assert updated_record is not None, "Health record not found after update attempt."
-        assert updated_record.patient_user_id == patient_user_id, "Patient ID should not change."
+        assert updated_record.patient_user_id == patient_user_id, "patient ID should not change."
         assert updated_record.record_data == updated_record_data, "Record data was not updated correctly."
         assert updated_record.last_updated_by_user_id == updater_user_id, "Updater user ID was not set correctly."
         assert updated_record.last_updated_at is not None, "last_updated_at should be set."
         assert updated_record.last_updated_at > original_last_updated_at, "last_updated_at was not updated."
 
-def test_update_health_record_not_found(db_engine):
+def test_update_health_record_not_found(db_engine, role_right_checker_db_connection):
     """Tests that updating a non-existent health record raises NoResultFound."""
+    populate_example_data(db_engine) # For requestee doctor_bob
+    requestee_username = "doctor_bob" # Has WRITE_PATIENT_HEALTHCARE_RECORD_DATA
+
     non_existent_record_id = 99999  # An ID that is unlikely to exist
-    updater_user_id = 1 # A dummy user ID for the updater; doesn't matter as record won't be found
     record_data_for_update = {"notes": "Attempting to update non-existent record."}
 
     with pytest.raises(NoResultFound):
-        update_health_record(db_engine, updater_user_id, non_existent_record_id, record_data_for_update)
+        update_health_record(db_engine, role_right_checker_db_connection, requestee_username, non_existent_record_id, record_data_for_update)

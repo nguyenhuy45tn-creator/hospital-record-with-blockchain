@@ -503,10 +503,10 @@ def populate_example_data(engine):
     with Session(engine) as session:
         # --- 1. Define and Create Roles ---
         roles_data = {
-            "Patient": "A patient user, can read own records.",
-            "Doctor": "A medical doctor, can read/edit patient records.",
-            "Nurse": "A nurse, can read/edit patient records.",
-            "Admin": "An administrator, can manage users and roles."
+            "patient": "A patient user, can read own records.",
+            "doctor": "A medical doctor, can read/edit patient records.",
+            "nurse": "A nurse, can read/edit patient records.",
+            "admin": "An administrator, can manage users and roles."
         }
         roles = {}
         for name, desc in roles_data.items():
@@ -523,10 +523,10 @@ def populate_example_data(engine):
 
         # --- 2. Create Example Users (Idempotent) ---
         users_data = [
-            {"username": "patient_alice", "password": "password123", "full_name": "Alice Wonderland", "address": "123 Rabbit Hole", "hospital_designation": "Patient", "role": "Patient"},
-            {"username": "doctor_bob", "password": "password123", "full_name": "Dr. Bob Smith", "address": "456 Health St", "hospital_designation": "General Practitioner", "role": "Doctor"},
-            {"username": "nurse_carol", "password": "password123", "full_name": "Carol Danvers", "address": "789 Care Ave", "hospital_designation": "Registered Nurse", "role": "Nurse"},
-            {"username": "admin_dave", "password": "password123", "full_name": "Dave Administrator", "address": "1 Admin Plaza", "hospital_designation": "System Admin", "role": "Admin"},
+            {"username": "patient_alice", "password": "password123", "full_name": "Alice Wonderland", "address": "123 Rabbit Hole", "hospital_designation": "Patient", "role": "patient"},
+            {"username": "doctor_bob", "password": "password123", "full_name": "Dr. Bob Smith", "address": "456 Health St", "hospital_designation": "General Practitioner", "role": "doctor"},
+            {"username": "nurse_carol", "password": "password123", "full_name": "Carol Danvers", "address": "789 Care Ave", "hospital_designation": "Registered Nurse", "role": "nurse"},
+            {"username": "admin_dave", "password": "password123", "full_name": "Dave Administrator", "address": "1 Admin Plaza", "hospital_designation": "System Admin", "role": "admin"},
         ]
 
         created_users = {}
