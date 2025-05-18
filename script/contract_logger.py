@@ -7,7 +7,7 @@ from functools import wraps
 from datetime import datetime
 import json
 from script.interface import Logger, Log
-from deploy import deploy
+from script.deploy import deploy
 
 config = get_config()
 active_network = config.get_active_network()
