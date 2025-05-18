@@ -13,4 +13,4 @@ def test_logged():
     some_func(2)
     return _logger.get_newest()
 
-print(test_logged()[0])
+[print(x) for x in test_logged()]

@@ -7,11 +7,17 @@ from functools import wraps
 from datetime import datetime
 import json
 from script.interface import Logger, Log
+from deploy import deploy
 
 config = get_config()
 active_network = config.get_active_network()
 # Get the latest counter of the Counter contract
 contract_logger = active_network \
+                        .get_latest_contract_checked("Logger")
+
+if contract_logger is None:
+    deploy()
+    contract_logger = active_network \
                         .get_latest_contract_checked("Logger")
 
 _logger = Logger(contract_logger)
