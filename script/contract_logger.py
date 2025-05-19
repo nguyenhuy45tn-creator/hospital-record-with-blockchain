@@ -4,6 +4,7 @@ import boa
 from eth_account import Account
 from script.interface import RoleRightChecker
 import inspect
+import uuid
 from functools import wraps
 from datetime import datetime
 import json
@@ -22,6 +23,13 @@ if contract_logger is None:
                         .get_latest_contract_checked("Logger")
 
 _logger = Logger(contract_logger)
+
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, uuid.UUID):
+        return str(obj)
 
 def logged(logger: Logger= _logger):
     def _inner_logged(func):
@@ -57,7 +65,8 @@ def logged(logger: Logger= _logger):
                 logger.add_log(
                         json.dumps(
                             log.__dict__,
-                            indent=4
+                            indent=4,
+                            default=json_serial # Use the custom serializer
                             )
                     )
                 return value
@@ -73,7 +82,8 @@ def logged(logger: Logger= _logger):
                 logger.add_log(
                         json.dumps(
                             log.__dict__,
-                            indent=4
+                            indent=4,
+                            default=json_serial # Use the custom serializer
                             )
                     )
                 raise e
