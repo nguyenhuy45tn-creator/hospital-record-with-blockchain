@@ -1,6 +1,14 @@
 from flask import Flask, render_template_string, request, redirect, url_for
+import flask_login
+from flask import session
+from uuid import uuid4
 
 app = Flask(__name__)
+app.secret_key = "super secret string"
+
+login_manager = flask_login.LoginManager()
+
+login_manager.init_app()
 
 # Simple HTML form template
 form_html = '''
@@ -26,7 +34,10 @@ def login():
 
         # Simple check (you can replace this with a real check)
         if username == 'admin' and password == 'secret':
+            session["id"] = uuid4()
+
             return f"<h2>Welcome, {username}!</h2>"
+        
         else:
             message = 'Invalid username or password'
 

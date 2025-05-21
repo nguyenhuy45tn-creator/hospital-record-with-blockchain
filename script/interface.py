@@ -1,6 +1,6 @@
 from moccasin.boa_tools import VyperContract
 from boa.contracts.abi.abi_contract import ABIContract
-
+from datetime import datetime
 class uint128(int):
     # this is only for better notation
     pass 
@@ -14,6 +14,7 @@ class String(list):
     pass
 
 class RoleRightChecker:
+
     """
     A wrapper class for a Vyper contract that provides type-checked and boundary-checked
     methods to interact with a user rights management smart contract.
@@ -147,3 +148,30 @@ class RoleRightChecker:
     def view_rights(self) -> list[str]:
         num_rights:int = self.user_right_checker.view_num_rights()
         return [self.user_right_checker.right_list(i) for i in range(num_rights)]
+    
+class Logger:
+    def __init__(self, contract_logger):
+        self.contract_logger = contract_logger
+        
+    def add_log(self, log_mss: str):
+        if len(log_mss) > 1000:
+            raise ValueError("log message must has less than 1000 characters")
+        self.contract_logger.add_log(log_mss)
+    
+
+    def get_newest(self, lower_bound: int = 0, upper_bound: int = 2*128):
+        lower_bound = max(0, lower_bound)
+        upper_bound = min(upper_bound, self.contract_logger.get_length())
+
+        return [self.contract_logger.log_db(i) for i in range(lower_bound, upper_bound)]
+
+
+class Log:
+    def __init__(self, func, result, args, kwargs, output = None):
+        self.ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.func = func.__name__
+        self.args = args
+        self.kwargs = kwargs
+        self.result = result
+        if output is not None:
+            self.output = output
