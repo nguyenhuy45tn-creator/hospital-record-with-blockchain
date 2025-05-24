@@ -22,6 +22,10 @@ from random import choices
 from script.interface import RoleRightChecker 
 from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA,READ_OWN_HEALTHCARE_RECORD_RIGHT, ADD_USER_ROLE, CHANGE_OWN_PASSWORD_RIGHT, ADMIN_CHANGE_USER_PASSWORD_RIGHT
 
+# Global variables for engine and role_right_checker
+engine = None
+role_right_checker = None
+
 # Define the base class for declarative models
 Base = declarative_base()
 # Initialize sqlalchemy-continuum right after Base definition
@@ -155,10 +159,11 @@ def initialize_database():
     engine, and then creates all tables defined in the Base metadata.
 
     Returns:
-        sqlalchemy.engine.Engine: The created SQLAlchemy engine instance.
+        sqlalchemy.engine.Engine: The created SQLAlchemy engine instance as a global variable.
     """
     DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/sampledb"
     configure_mappers() # Ensure all mappers are configured before creating tables
+    global engine 
     engine = create_engine(DATABASE_URL)
     Base.metadata.create_all(engine)
 
@@ -188,14 +193,13 @@ def _check_access(role_right_checker: RoleRightChecker, role_name: str, right_na
     else:
         raise PermissionError(f"Unknown access control result ({access_result}) for role '{role_name}' and right '{right_name}'. Cannot {operation_description}. Access denied.")
 
-def get_single_user(engine, role_right_checker: RoleRightChecker, requestee_username: str, user_system_wide_identifier:uuid.UUID):
+def get_single_user(requestee_username: str, user_system_wide_identifier:uuid.UUID):
     """
     Retrieves a single user from the database based on their system-wide identifier.
     Access control is performed before retrieving the user.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
-        role_right_checker (RoleRightChecker): The access control contract instance.
         requestee_username (str): The username of the user making the request.
         user_system_wide_identifier (uuid.UUID): The unique UUID identifier of the user to retrieve.
 
@@ -225,14 +229,13 @@ def get_single_user(engine, role_right_checker: RoleRightChecker, requestee_user
 
     return output
 
-def get_all_users(engine, role_right_checker: RoleRightChecker, requestee_username: str):
+def get_all_users(requestee_username: str):
     """
     Retrieves all users from the database.
     Access control is performed to ensure the requestee has permission.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
-        role_right_checker (RoleRightChecker): The access control contract instance.
         requestee_username (str): The username of the user making the request.
 
     Returns:
@@ -249,7 +252,7 @@ def get_all_users(engine, role_right_checker: RoleRightChecker, requestee_userna
         output = session.execute(query).scalars().all()
     return output
 
-def get_health_records(engine, role_right_checker: RoleRightChecker, requestee_username: str, patient_swid:uuid.UUID):
+def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
     """
     Retrieves the healthcare records associated with a specific user.
     Access control is performed based on whether the requestee is viewing their own
@@ -258,10 +261,9 @@ def get_health_records(engine, role_right_checker: RoleRightChecker, requestee_u
     First finds the user by their system-wide identifier, then finds the
     healthcare records linked to that user's primary key ID. A user can
     have multiple healthcare records.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
-        role_right_checker (RoleRightChecker): The access control contract instance.
         requestee_username (str): The username of the user making the request.
         patient_swid (uuid.UUID): The unique UUID identifier of the patient whose records are needed.
 
@@ -290,15 +292,14 @@ def get_health_records(engine, role_right_checker: RoleRightChecker, requestee_u
     return records
 
 
-def add_user(engine, role_right_checker: RoleRightChecker, requestee_username: str, full_name: str, address: str, hospital_designation: str, role_for_new_user: str):
+def add_user(requestee_username: str, full_name: str, address: str, hospital_designation: str, role_for_new_user: str):
     """
     Adds a new user and their login credentials to the database.
     Access control is performed to ensure the requestee has permission.
     Username and password for the new user are generated automatically.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
-        role_right_checker (RoleRightChecker): The access control contract instance.
         requestee_username (str): The username of the user making the request.
         full_name (str): The user's full name.
         address (str): The user's address.
@@ -356,14 +357,13 @@ def add_user(engine, role_right_checker: RoleRightChecker, requestee_username: s
 
         
 
-def add_health_record(engine, role_right_checker: RoleRightChecker, requestee_username: str, patient_user_id:int, record_data:dict):
+def add_health_record(requestee_username: str, patient_user_id:int, record_data:dict):
     """
     Adds a new healthcare record for a specific user.
     Access control is performed. The requestee becomes the creator of the record.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
-        role_right_checker (RoleRightChecker): The access control contract instance.
         requestee_username (str): The username of the user making the request (and creating the record).
         patient_user_id (int): The primary key ID of the user (patient) this record belongs to.
         record_data (dict): A dictionary containing the healthcare data to be stored (will be saved as JSONB).
@@ -386,7 +386,7 @@ def add_health_record(engine, role_right_checker: RoleRightChecker, requestee_us
         session.commit()
         return
 
-def update_health_record(engine, role_right_checker: RoleRightChecker, requestee_username: str, record_id:int, record_data:dict):
+def update_health_record(requestee_username: str, record_id:int, record_data:dict):
     """
     Updates an existing healthcare record.
     Access control is performed. The requestee becomes the updater of the record.
@@ -394,9 +394,9 @@ def update_health_record(engine, role_right_checker: RoleRightChecker, requestee
     Finds the record by its primary key ID and updates its data,
     the last updated timestamp, and the ID of the user performing the update.
 
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
+
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
-        role_right_checker (RoleRightChecker): The access control contract instance.
         requestee_username (str): The username of the user making the request (and updating the record).
         record_id (int): The primary key ID of the healthcare record to update.
         record_data (dict): The new dictionary data for the record.
@@ -421,14 +421,13 @@ def update_health_record(engine, role_right_checker: RoleRightChecker, requestee
         else:
             raise ValueError(f"Record with ID '{record_id}' not found.")
     
-def add_role(engine, role_right_checker: RoleRightChecker, requestee_username: str, role_name_to_add:str, description:str):
+def add_role(requestee_username: str, role_name_to_add:str, description:str):
     """
     Adds a new role to the database.
     Access control is performed.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
-        role_right_checker (RoleRightChecker): The access control contract instance.
         requestee_username (str): The username of the user making the request.
         role_name_to_add (str): The unique name for the new role.
         description (str): A description of the role's purpose or permissions.
@@ -450,15 +449,14 @@ def add_role(engine, role_right_checker: RoleRightChecker, requestee_username: s
         session.add(new_role)
         session.commit()
     
-def change_password(engine, role_right_checker: RoleRightChecker, requestee_username: str, target_username:str, new_password:str):
+def change_password(requestee_username: str, target_username:str, new_password:str):
     """
     Changes the password for a given user.
     Access control is performed. Users can change their own password, or an admin
     can change other users' passwords, depending on rights.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance.
-        role_right_checker (RoleRightChecker): The access control contract instance.
         requestee_username (str): The username of the user making the request.
         target_username (str): The username of the user whose password is to be changed.
         new_password (str): The new plain text password.
@@ -492,14 +490,13 @@ def change_password(engine, role_right_checker: RoleRightChecker, requestee_user
         print(f"Password for user '{target_username}' changed successfully by '{requestee_username}'.")
 
 
-def populate_example_data(engine):
+def populate_example_data():
     """
     Populates the database with example roles, permissions, users, and records
     if they don't already exist. This function is idempotent.
-
-    Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance.
+    This function uses the global 'engine' for database sessions.
     """
+    # engine and role_right_checker are expected to be global
     with Session(engine) as session:
         # --- 1. Define and Create Roles ---
         roles_data = {
@@ -605,7 +602,7 @@ if __name__ == '__main__':
     try:
         engine = initialize_database()
         print("Database initialized.")
-        populate_example_data(engine)
+        populate_example_data()
 
     except Exception as e:
         print(f"An error occurred: {e}")

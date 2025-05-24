@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from bcrypt import checkpw
 from sqlalchemy.orm.exc import NoResultFound
 from datetime import datetime, timezone
-
+from script import db_connection
 from script.db_connection import (
     Base,
     Role,
@@ -46,7 +46,8 @@ EXPECTED_HEALTH_RECORD_DATA = {
 }
 
 def test_populate_creates_roles(db_engine):
-    populate_example_data(db_engine)
+    db_connection.engine = db_engine
+    populate_example_data()
     with Session(db_engine) as session:
         roles_in_db = session.execute(select(Role)).scalars().all()
         assert len(roles_in_db) == len(EXPECTED_ROLES), "Incorrect number of roles created."
@@ -59,7 +60,8 @@ def test_populate_creates_roles(db_engine):
             assert role.description == description, f"Description for role '{role_name}' is incorrect."
 
 def test_populate_creates_users_and_logins(db_engine):
-    populate_example_data(db_engine)
+    db_connection.engine = db_engine
+    populate_example_data()
     with Session(db_engine) as session:
         users_in_db = session.execute(select(User)).scalars().all()
         logins_in_db = session.execute(select(Login)).scalars().all()
@@ -99,7 +101,8 @@ def test_populate_creates_users_and_logins(db_engine):
             assert user_entry.user_role_name == user_data["role"] # Check FK column too
 
 def test_populate_creates_health_record(db_engine):
-    populate_example_data(db_engine)
+    db_connection.engine = db_engine
+    populate_example_data()
     with Session(db_engine) as session:
         patient_user = session.execute(
             select(User).where(User.user_name == EXPECTED_HEALTH_RECORD_patient_USERNAME)
@@ -125,8 +128,9 @@ def test_populate_creates_health_record(db_engine):
         assert record.record_data == EXPECTED_HEALTH_RECORD_DATA
 
 def test_populate_is_idempotent(db_engine):
+    db_connection.engine = db_engine
     # First run
-    populate_example_data(db_engine)
+    populate_example_data()
     
     with Session(db_engine) as session:
         count_roles1 = session.query(Role).count()
@@ -135,7 +139,7 @@ def test_populate_is_idempotent(db_engine):
         count_records1 = session.query(HealthcareRecord).count()
 
     # Second run
-    populate_example_data(db_engine)
+    populate_example_data()
 
     with Session(db_engine) as session:
         count_roles2 = session.query(Role).count()
@@ -150,7 +154,9 @@ def test_populate_is_idempotent(db_engine):
 
 def test_get_single_user_success(db_engine, role_right_checker_db_connection):
     """Tests retrieving an existing user by system_wide_identifier."""
-    populate_example_data(db_engine) # Ensure requestee 'doctor_bob' and roles exist
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
+    populate_example_data() # Ensure requestee 'doctor_bob' and roles exist
     requestee_username = "doctor_bob" # Has READ_PATIENT_BASIC_DATA
 
     with Session(db_engine) as session:
@@ -187,7 +193,7 @@ def test_get_single_user_success(db_engine, role_right_checker_db_connection):
         user_swid = test_user.system_wide_identifier # Get the auto-generated SWID
 
     # Call the function under test
-    retrieved_user = get_single_user(db_engine, role_right_checker_db_connection, requestee_username, user_swid)
+    retrieved_user = get_single_user(requestee_username, user_swid)
 
     assert retrieved_user is not None
     assert retrieved_user.system_wide_identifier == user_swid
@@ -196,24 +202,28 @@ def test_get_single_user_success(db_engine, role_right_checker_db_connection):
 
 def test_get_single_user_not_found(db_engine, role_right_checker_db_connection):
     """Tests that ValueError is raised when user with SWID does not exist."""
-    populate_example_data(db_engine) # Ensure requestee 'doctor_bob' exists
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
+    populate_example_data() # Ensure requestee 'doctor_bob' exists
     requestee_username = "doctor_bob"
 
     non_existent_swid = uuid.uuid4() # Generate a random UUID that won't exist
     with pytest.raises(ValueError, match=f"User with SWID '{non_existent_swid}' not found."):
-        get_single_user(db_engine, role_right_checker_db_connection, requestee_username, non_existent_swid)
+        get_single_user(requestee_username, non_existent_swid)
 
 
 def test_get_all_users_with_data(db_engine, role_right_checker_db_connection):
     """Tests retrieving all users when some users exist."""
-    populate_example_data(db_engine) # Populates users, including doctor_bob
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
+    populate_example_data() # Populates users, including doctor_bob
     requestee_username = "doctor_bob" # Has READ_PATIENT_BASIC_DATA
 
     # Data is populated by populate_example_data, let's check against that
     # Or add more users if needed for the test's specific scenario
     # For this test, populate_example_data provides enough users.
 
-    retrieved_users = get_all_users(db_engine, role_right_checker_db_connection, requestee_username)
+    retrieved_users = get_all_users(requestee_username)
 
     assert isinstance(retrieved_users, list)
     assert len(retrieved_users) == len(EXPECTED_USERS_DATA)
@@ -224,20 +234,24 @@ def test_get_all_users_with_data(db_engine, role_right_checker_db_connection):
 
 def test_get_health_records_user_not_found(db_engine, role_right_checker_db_connection):
     """Tests that ValueError is raised when the patient user SWID does not exist."""
-    populate_example_data(db_engine) # For requestee doctor_bob
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
+    populate_example_data() # For requestee doctor_bob
     requestee_username = "doctor_bob" # Has READ_PATIENT_HEALTHCARE_RECORD_DATA
 
     non_existent_swid = uuid.uuid4()
     with pytest.raises(ValueError, match=f"Patient with SWID '{non_existent_swid}' not found."):
-        get_health_records(db_engine, role_right_checker_db_connection, requestee_username, non_existent_swid)
+        get_health_records(requestee_username, non_existent_swid)
 
 def test_get_health_records_user_exists_no_records(db_engine, role_right_checker_db_connection):
     """Tests that an empty list is returned when the user exists but has no health records."""
-    populate_example_data(db_engine) # For requestee doctor_bob and "patient" role
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
+    populate_example_data() # For requestee doctor_bob and "patient" role
     requestee_username = "doctor_bob"
 
     with Session(db_engine) as session:
-        # Ensure "patient" role exists for the new patient user
+        # Ensure "patient" role exists for the new patient user (populated by populate_example_data)
         patient_role_obj = session.query(Role).filter_by(role_name="patient").first()
         assert patient_role_obj is not None, "Patient role not found from populate_example_data"
 
@@ -251,14 +265,17 @@ def test_get_health_records_user_exists_no_records(db_engine, role_right_checker
         session.commit()
         patient_swid = patient_user.system_wide_identifier
 
-    records = get_health_records(db_engine, role_right_checker_db_connection, requestee_username, patient_swid)
+    records = get_health_records(requestee_username, patient_swid)
     assert isinstance(records, list)
     assert len(records) == 0
 
 def test_get_health_records_user_exists_with_one_record(db_engine, role_right_checker_db_connection):
     """Tests retrieving a single health record for an existing user."""
-    populate_example_data(db_engine) # For requestee doctor_bob and "patient" role
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
+    populate_example_data() # For requestee doctor_bob and "patient" role
     requestee_username = "doctor_bob"
+
 
     with Session(db_engine) as session:
         patient_role_obj = session.query(Role).filter_by(role_name="patient").first()
@@ -289,7 +306,7 @@ def test_get_health_records_user_exists_with_one_record(db_engine, role_right_ch
         session.commit()
         record_id = health_record.record_id
 
-    retrieved_records = get_health_records(db_engine, role_right_checker_db_connection, requestee_username, patient_swid)
+    retrieved_records = get_health_records(requestee_username, patient_swid)
     assert isinstance(retrieved_records, list)
     assert len(retrieved_records) == 1
     assert retrieved_records[0].record_id == record_id
@@ -298,7 +315,9 @@ def test_get_health_records_user_exists_with_one_record(db_engine, role_right_ch
 
 def test_get_health_records_user_exists_with_multiple_records(db_engine, role_right_checker_db_connection):
     """Tests retrieving multiple health records for an existing user."""
-    populate_example_data(db_engine) # For requestee doctor_bob and "patient" role
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
+    populate_example_data() # For requestee doctor_bob and "patient" role
     requestee_username = "doctor_bob"
 
     with Session(db_engine) as session:
@@ -329,7 +348,7 @@ def test_get_health_records_user_exists_with_multiple_records(db_engine, role_ri
         record1_id = record1.record_id
         record2_id = record2.record_id
 
-    retrieved_records = get_health_records(db_engine, role_right_checker_db_connection, requestee_username, patient_swid)
+    retrieved_records = get_health_records(requestee_username, patient_swid)
     assert isinstance(retrieved_records, list)
     assert len(retrieved_records) == 2
 
@@ -343,7 +362,9 @@ def test_get_health_records_user_exists_with_multiple_records(db_engine, role_ri
 
 def test_add_user_success(db_engine, role_right_checker_db_connection):
     """Tests successfully adding a new user."""
-    populate_example_data(db_engine) # For requestee doctor_bob and "patient" role
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
+    populate_example_data() # For requestee doctor_bob and "patient" role
     requestee_username = "doctor_bob" # Has WRITE_PATIENT_BASIC_DATA
 
     full_name = "New Test User Fullname"
@@ -353,7 +374,7 @@ def test_add_user_success(db_engine, role_right_checker_db_connection):
 
     # Call the function under test
     generated_username, generated_password = add_user(
-        db_engine, role_right_checker_db_connection, requestee_username,
+        requestee_username,
         full_name, address, hospital_designation, role_for_new_user
     )
 
@@ -385,6 +406,8 @@ def test_add_user_success(db_engine, role_right_checker_db_connection):
 
 def test_add_health_record_success(db_engine, role_right_checker_db_connection):
     """Tests successfully adding a new health record for a user."""
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
     with Session(db_engine) as session:
         # Setup: Create a patient user and a creator user
         role_name = "TestRoleForHealthRecordAdd"
@@ -418,7 +441,7 @@ def test_add_health_record_success(db_engine, role_right_checker_db_connection):
         requestee_username = "creator_hr_add" # This is the username of the creator
 
     record_data = {"symptoms": "headache", "diagnosis": "stress"}
-    add_health_record(db_engine, role_right_checker_db_connection, requestee_username, patient_user_id, record_data)
+    add_health_record(requestee_username, patient_user_id, record_data)
 
     # Verify the record was added
     with Session(db_engine) as session:
@@ -437,6 +460,8 @@ def test_add_health_record_success(db_engine, role_right_checker_db_connection):
 
 def test_update_health_record_success(db_engine, role_right_checker_db_connection):
     """Tests successfully updating an existing health record."""
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
     with Session(db_engine) as session:
         # Setup: Create patient, initial creator, and updater users
         # Use existing roles like "patient" and "doctor"
@@ -486,7 +511,7 @@ def test_update_health_record_success(db_engine, role_right_checker_db_connectio
     updated_record_data = {"condition": "recovered", "treatment": "none", "notes": "patient feels better."}
 
     # Call the function under test
-    update_health_record(db_engine, role_right_checker_db_connection, requestee_username, record_id_to_update, updated_record_data)
+    update_health_record(requestee_username, record_id_to_update, updated_record_data)
 
     # Verify the record was updated (updater_user_id is the DB ID of the user object 'updater_user')
     with Session(db_engine) as session:
@@ -501,11 +526,13 @@ def test_update_health_record_success(db_engine, role_right_checker_db_connectio
 
 def test_update_health_record_not_found(db_engine, role_right_checker_db_connection):
     """Tests that updating a non-existent health record raises NoResultFound."""
-    populate_example_data(db_engine) # For requestee doctor_bob
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
+    populate_example_data() # For requestee doctor_bob
     requestee_username = "doctor_bob" # Has WRITE_PATIENT_HEALTHCARE_RECORD_DATA
 
     non_existent_record_id = 99999  # An ID that is unlikely to exist
     record_data_for_update = {"notes": "Attempting to update non-existent record."}
 
     with pytest.raises(NoResultFound):
-        update_health_record(db_engine, role_right_checker_db_connection, requestee_username, non_existent_record_id, record_data_for_update)
+        update_health_record(requestee_username, non_existent_record_id, record_data_for_update)
