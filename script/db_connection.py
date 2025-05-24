@@ -490,6 +490,27 @@ def change_password(requestee_username: str, target_username:str, new_password:s
         print(f"Password for user '{target_username}' changed successfully by '{requestee_username}'.")
 
 
+def check_password(username: str, password_to_check: str) -> bool:
+    """
+    Checks if the provided password for a given username is correct.
+
+    This function uses the global 'engine' for database sessions.
+
+    Args:
+        username (str): The username of the user to check.
+        password_to_check (str): The plain text password to verify.
+
+    Returns:
+        bool: True if the password is correct, False otherwise (including if the user is not found).
+    """
+    with Session(engine) as session:
+        login_entry = session.query(Login).filter_by(user_name=username).one_or_none()
+
+        if not login_entry:
+            return False  # User not found
+
+        return checkpw(password_to_check.encode('utf-8'), login_entry.hashed_password)
+
 def populate_example_data():
     """
     Populates the database with example roles, permissions, users, and records
