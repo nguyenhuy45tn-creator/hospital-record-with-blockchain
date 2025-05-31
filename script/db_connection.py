@@ -1,4 +1,5 @@
 import uuid
+import string
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -17,6 +18,13 @@ from sqlalchemy.orm import relationship, declarative_base, Session, configure_ma
 from sqlalchemy.sql import func 
 from sqlalchemy_continuum import make_versioned, utils as continuum_utils
 from bcrypt import hashpw, checkpw, gensalt
+from random import choices
+from script.interface import RoleRightChecker 
+from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA,READ_OWN_HEALTHCARE_RECORD_RIGHT, ADD_USER_ROLE, CHANGE_OWN_PASSWORD_RIGHT, ADMIN_CHANGE_USER_PASSWORD_RIGHT
+
+# Global variables for engine and role_right_checker
+engine = None
+role_right_checker = None
 
 # Define the base class for declarative models
 Base = declarative_base()
@@ -60,7 +68,7 @@ class User(Base):
     hospital_designation = Column(String(100))
     last_updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     updated_by_user_id = Column(Integer, ForeignKey('users.user_id'))
-    user_role_name = Column(String(50), ForeignKey('roles.role_name'))
+    user_role_name = Column(String(50), ForeignKey('roles.role_name'), nullable=False)
 
     # Relationship to Login (one-to-one)
     login_details = relationship("Login", back_populates="user", uselist=False, foreign_keys=[user_name])
@@ -151,100 +159,168 @@ def initialize_database():
     engine, and then creates all tables defined in the Base metadata.
 
     Returns:
-        sqlalchemy.engine.Engine: The created SQLAlchemy engine instance.
+        sqlalchemy.engine.Engine: The created SQLAlchemy engine instance as a global variable.
     """
     DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/sampledb"
     configure_mappers() # Ensure all mappers are configured before creating tables
+    global engine 
     engine = create_engine(DATABASE_URL)
     Base.metadata.create_all(engine)
 
     return engine
 
-def get_single_user(engine, user_system_wide_identifier:uuid.UUID):
+def _get_requestee_user_and_role(session, requestee_username: str):
+    """Helper to fetch the requestee user and their role name."""
+    requestee_user = session.query(User).join(Login).filter(Login.user_name == requestee_username).one_or_none()
+    if not requestee_user:
+        # This case should ideally be caught by a higher-level authentication layer
+        raise ValueError(f"Requestee user '{requestee_username}' not found.")
+    if not requestee_user.role:
+        raise PermissionError(f"Requestee user '{requestee_username}' does not have an assigned role. Access denied.")
+    return requestee_user, requestee_user.role.role_name
+
+def _check_access(role_right_checker: RoleRightChecker, role_name: str, right_name: str, operation_description: str):
+    """Helper to perform the access check and raise PermissionError if denied."""
+    access_result = role_right_checker.check_right(role_name, right_name)
+    if access_result == 1:
+        return  # Access granted
+    elif access_result == 0:
+        raise PermissionError(f"User role '{role_name}' lacks right '{right_name}' to {operation_description}. Access denied.")
+    elif access_result == -1:
+        raise PermissionError(f"Role '{role_name}' not found in access control system. Cannot {operation_description}. Access denied.")
+    elif access_result == -2:
+        raise PermissionError(f"Right '{right_name}' not found in access control system. Cannot {operation_description}. Access denied.")
+    else:
+        raise PermissionError(f"Unknown access control result ({access_result}) for role '{role_name}' and right '{right_name}'. Cannot {operation_description}. Access denied.")
+
+def get_single_user(requestee_username: str, user_system_wide_identifier:uuid.UUID):
     """
-    Only call after access control is performed
-    
     Retrieves a single user from the database based on their system-wide identifier.
+    Access control is performed before retrieving the user.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
+        requestee_username (str): The username of the user making the request.
         user_system_wide_identifier (uuid.UUID): The unique UUID identifier of the user to retrieve.
 
     Returns:
         User: The User object corresponding to the provided identifier.
 
     Raises:
+        PermissionError: If the requestee does not have permission to view the user.
         sqlalchemy.orm.exc.NoResultFound: If no user with the given identifier is found.
         sqlalchemy.orm.exc.MultipleResultsFound: If multiple users somehow have the same identifier (shouldn't happen due to unique constraint).
     """
     with Session(engine) as session:
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+
+        # Determine the appropriate right based on whether it's a self-read or other-read
+        target_user_for_swid_check = session.query(User).filter(User.system_wide_identifier == user_system_wide_identifier).one_or_none()
+        if not target_user_for_swid_check:
+            raise ValueError(f"User with SWID '{user_system_wide_identifier}' not found.")
+
+        if requestee_user.system_wide_identifier == user_system_wide_identifier:
+            _check_access(role_right_checker, requestee_role_name, READ_OWN_PATIENT_BASIC_DATA, f"view own profile (SWID: {user_system_wide_identifier})")
+        else:
+            _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, f"view profile for user SWID: {user_system_wide_identifier}")
+
         query =  select(User).where(User.system_wide_identifier == user_system_wide_identifier)
         output = session.execute(query).scalar_one()
 
     return output
 
-def get_all_users(engine):
+def get_all_users(requestee_username: str):
     """
     Retrieves all users from the database.
-
-    Only call after access control is performed
+    Access control is performed to ensure the requestee has permission.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
+        requestee_username (str): The username of the user making the request.
 
     Returns:
         list[User]: A list containing all User objects in the database.
+
+    Raises:
+        PermissionError: If the requestee does not have permission to list all users.
     """
     with Session(engine) as session:
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
+
         query =  select(User)
         output = session.execute(query).scalars().all()
     return output
 
-def get_health_records(engine, user_system_wide_identifier:uuid.UUID):
+def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
     """
     Retrieves the healthcare records associated with a specific user.
-
-    Only call after access control is performed
+    Access control is performed based on whether the requestee is viewing their own
+    records or another patient's records.
 
     First finds the user by their system-wide identifier, then finds the
     healthcare records linked to that user's primary key ID. A user can
     have multiple healthcare records.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
-        user_system_wide_identifier (uuid.UUID): The unique UUID identifier of the user whose record is needed.
+        requestee_username (str): The username of the user making the request.
+        patient_swid (uuid.UUID): The unique UUID identifier of the patient whose records are needed.
 
     Returns:
         list[HealthcareRecord]: A list of HealthcareRecord objects associated with the user.
                                 Returns an empty list if the user is not found or has no records.
+
+    Raises:
+        PermissionError: If the requestee does not have permission to view these health records.
     """
     with Session(engine) as session:
-        query = select(User).where(User.system_wide_identifier == user_system_wide_identifier)
-        user = session.execute(query).scalar_one_or_none()
-        if user:
-            query = select(HealthcareRecord).where(HealthcareRecord.patient_user_id == user.user_id)
-            records = session.execute(query).scalars().all()
-            return records
-        return [] # Return an empty list if user not found
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        if requestee_user.system_wide_identifier == patient_swid:
+            _check_access(role_right_checker, requestee_role_name, READ_OWN_HEALTHCARE_RECORD_RIGHT, f"view own health records (Patient SWID: {patient_swid})")
+        else:
+            _check_access(role_right_checker, requestee_role_name, READ_PATIENT_HEALTHCARE_RECORD_DATA, f"view health records for patient SWID: {patient_swid}")
 
-def add_user(engine, username: str, password_plain: str, full_name: str, address: str, hospital_designation: str):
+        patient_user = session.query(User).filter(User.system_wide_identifier == patient_swid).one_or_none()
+        if not patient_user:
+            raise ValueError(f"Patient with SWID '{patient_swid}' not found.")
+
+
+
+        query = select(HealthcareRecord).where(HealthcareRecord.patient_user_id == patient_user.user_id)
+        records = session.execute(query).scalars().all()
+    return records
+
+
+def add_user(requestee_username: str, full_name: str, address: str, hospital_designation: str, role_for_new_user: str):
     """
     Adds a new user and their login credentials to the database.
-
-    Only call after access control is performed
+    Access control is performed to ensure the requestee has permission.
+    Username and password for the new user are generated automatically.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
-        username (str): The desired username (must be unique for logins).
-        password_plain (str): The user's plain text password
+        requestee_username (str): The username of the user making the request.
         full_name (str): The user's full name.
         address (str): The user's address.
         hospital_designation (str): The user's hospital designation.
+        role_for_new_user (str): The name of the role to assign to the new user.
+
+    Returns:
+        tuple[str, str]: The generated username and plain text password for the new user.
 
     Raises:
+        PermissionError: If the requestee does not have permission to add a user.
         ValueError: If the username already exists.
     """
     with Session(engine) as session:
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        _check_access(role_right_checker, requestee_role_name, WRITE_PATIENT_BASIC_DATA, "add a new user")
+
+        # Generate a random username and password
+        username = ''.join(choices(string.ascii_uppercase + string.digits, k=6))
+        password_plain = ''.join(choices(string.ascii_uppercase + string.digits, k=12))
+
         # Check if username (for login) already exists
         existing_login = session.query(Login).filter_by(user_name=username).first()
         if existing_login:
@@ -265,7 +341,8 @@ def add_user(engine, username: str, password_plain: str, full_name: str, address
         new_user = User(
             full_name=full_name,
             address=address,
-            hospital_designation=hospital_designation
+            hospital_designation=hospital_designation,
+            user_role_name=role_for_new_user
         )
 
         # Associate the User with the Login entry via the relationship
@@ -276,67 +353,178 @@ def add_user(engine, username: str, password_plain: str, full_name: str, address
         # SQLAlchemy will also add new_login_entry due to the relationship and FK.
         session.add(new_user)
         session.commit()
+    return username, password_plain
+
         
 
-def add_health_record(engine, user_id:int, record_data:dict, creator_user_id:int):
+def add_health_record(requestee_username: str, patient_user_id:int, record_data:dict):
     """
     Adds a new healthcare record for a specific user.
-
-    Only call after access control is performed
+    Access control is performed. The requestee becomes the creator of the record.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
-        user_id (int): The primary key ID of the user (patient) this record belongs to.
+        requestee_username (str): The username of the user making the request (and creating the record).
+        patient_user_id (int): The primary key ID of the user (patient) this record belongs to.
         record_data (dict): A dictionary containing the healthcare data to be stored (will be saved as JSONB).
-        creator_user_id (int): The primary key ID of the user who created this record.
+
+    Raises:
+        PermissionError: If the requestee does not have permission to add a health record.
+        ValueError: If the patient_user_id or requestee_username is invalid.
     """
     with Session(engine) as session:
-        new_record = HealthcareRecord(patient_user_id=user_id, record_data=record_data, last_updated_by_user_id=creator_user_id)
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        _check_access(role_right_checker, requestee_role_name, WRITE_PATIENT_HEALTHCARE_RECORD_DATA, f"add health record for patient ID {patient_user_id}")
+
+        # Ensure patient exists
+        patient_exists = session.query(User).filter_by(user_id=patient_user_id).count() > 0
+        if not patient_exists:
+            raise ValueError(f"Patient with user_id '{patient_user_id}' not found.")
+
+        new_record = HealthcareRecord(patient_user_id=patient_user_id, record_data=record_data, last_updated_by_user_id=requestee_user.user_id)
         session.add(new_record)
         session.commit()
         return
 
-def update_health_record(engine, user_id:int, record_id:int, record_data:dict):
+def update_health_record(requestee_username: str, record_id:int, record_data:dict):
     """
     Updates an existing healthcare record.
-
-    Only call after access control is performed
+    Access control is performed. The requestee becomes the updater of the record.
 
     Finds the record by its primary key ID and updates its data,
     the last updated timestamp, and the ID of the user performing the update.
 
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
+
     Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance to use for the session.
-        user_id (int): The primary key ID of the user performing the update.
+        requestee_username (str): The username of the user making the request (and updating the record).
         record_id (int): The primary key ID of the healthcare record to update.
         record_data (dict): The new dictionary data for the record.
+
+    Raises:
+        PermissionError: If the requestee does not have permission to update the health record.
+        sqlalchemy.orm.exc.NoResultFound: If the record_id does not exist.
+        ValueError: If requestee_username is invalid.
     """
     with Session(engine) as session:
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        _check_access(role_right_checker, requestee_role_name, WRITE_PATIENT_HEALTHCARE_RECORD_DATA, f"update health record ID {record_id}")
+
         query = select(HealthcareRecord).where(HealthcareRecord.record_id == record_id)
         record = session.execute(query).scalar_one()
         if record:
             record.record_data = record_data
             record.last_updated_at = datetime.now(timezone.utc)
-            record.last_updated_by_user_id = user_id
+            record.last_updated_by_user_id = requestee_user.user_id
             session.commit()
             return
-        return
+        else:
+            raise ValueError(f"Record with ID '{record_id}' not found.")
+    
+def add_role(requestee_username: str, role_name_to_add:str, description:str):
+    """
+    Adds a new role to the database.
+    Access control is performed.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
 
-def populate_example_data(engine):
+    Args:
+        requestee_username (str): The username of the user making the request.
+        role_name_to_add (str): The unique name for the new role.
+        description (str): A description of the role's purpose or permissions.
+
+    Raises:
+        ValueError: If a role with the given role_name already exists.
+    """
+    with Session(engine) as session:
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        _check_access(role_right_checker, requestee_role_name, ADD_USER_ROLE, f"add new role '{role_name_to_add}'")
+
+        # Check if a role with this name already exists
+        existing_role = session.query(Role).filter_by(role_name=role_name_to_add).first()
+        if existing_role:
+            raise ValueError(f"Role '{role_name_to_add}' already exists.")
+
+        # Create the new Role instance
+        new_role = Role(role_name=role_name_to_add, description=description)
+        session.add(new_role)
+        session.commit()
+    
+def change_password(requestee_username: str, target_username:str, new_password:str):
+    """
+    Changes the password for a given user.
+    Access control is performed. Users can change their own password, or an admin
+    can change other users' passwords, depending on rights.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
+
+    Args:
+        requestee_username (str): The username of the user making the request.
+        target_username (str): The username of the user whose password is to be changed.
+        new_password (str): The new plain text password.
+
+    Raises:
+        PermissionError: If the requestee does not have permission.
+        ValueError: If the username does not exist.
+    """
+    with Session(engine) as session:
+        _requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+
+        if requestee_username == target_username:
+            _check_access(role_right_checker, requestee_role_name, CHANGE_OWN_PASSWORD_RIGHT, "change own password")
+        else:
+            _check_access(role_right_checker, requestee_role_name, ADMIN_CHANGE_USER_PASSWORD_RIGHT, f"change password for user '{target_username}'")
+
+        login_entry = session.query(Login).filter_by(user_name=target_username).first()
+
+        if not login_entry:
+            raise ValueError(f"User '{target_username}' not found.")
+
+        # Generate new salt and hash the new password
+        new_salt = gensalt()
+        new_hashed_password = hashpw(new_password.encode('utf-8'), new_salt)
+
+        # Update the login entry
+        login_entry.salt = new_salt
+        login_entry.hashed_password = new_hashed_password
+
+        session.commit()
+        print(f"Password for user '{target_username}' changed successfully by '{requestee_username}'.")
+
+
+def check_password(username: str, password_to_check: str) -> bool:
+    """
+    Checks if the provided password for a given username is correct.
+
+    This function uses the global 'engine' for database sessions.
+
+    Args:
+        username (str): The username of the user to check.
+        password_to_check (str): The plain text password to verify.
+
+    Returns:
+        bool: True if the password is correct, False otherwise (including if the user is not found).
+    """
+    with Session(engine) as session:
+        login_entry = session.query(Login).filter_by(user_name=username).one_or_none()
+
+        if not login_entry:
+            return False  # User not found
+
+        return checkpw(password_to_check.encode('utf-8'), login_entry.hashed_password)
+
+def populate_example_data():
     """
     Populates the database with example roles, permissions, users, and records
     if they don't already exist. This function is idempotent.
-
-    Args:
-        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine instance.
+    This function uses the global 'engine' for database sessions.
     """
+    # engine and role_right_checker are expected to be global
     with Session(engine) as session:
         # --- 1. Define and Create Roles ---
         roles_data = {
-            "Patient": "A patient user, can read own records.",
-            "Doctor": "A medical doctor, can read/edit patient records.",
-            "Nurse": "A nurse, can read/edit patient records.",
-            "Admin": "An administrator, can manage users and roles."
+            "patient": "A patient user, can read own records.",
+            "doctor": "A medical doctor, can read/edit patient records.",
+            "nurse": "A nurse, can read/edit patient records.",
+            "admin": "An administrator, can manage users and roles."
         }
         roles = {}
         for name, desc in roles_data.items():
@@ -353,10 +541,10 @@ def populate_example_data(engine):
 
         # --- 2. Create Example Users (Idempotent) ---
         users_data = [
-            {"username": "patient_alice", "password": "password123", "full_name": "Alice Wonderland", "address": "123 Rabbit Hole", "hospital_designation": "Patient", "role": "Patient"},
-            {"username": "doctor_bob", "password": "password123", "full_name": "Dr. Bob Smith", "address": "456 Health St", "hospital_designation": "General Practitioner", "role": "Doctor"},
-            {"username": "nurse_carol", "password": "password123", "full_name": "Carol Danvers", "address": "789 Care Ave", "hospital_designation": "Registered Nurse", "role": "Nurse"},
-            {"username": "admin_dave", "password": "password123", "full_name": "Dave Administrator", "address": "1 Admin Plaza", "hospital_designation": "System Admin", "role": "Admin"},
+            {"username": "patient_alice", "password": "password123", "full_name": "Alice Wonderland", "address": "123 Rabbit Hole", "hospital_designation": "Patient", "role": "patient"},
+            {"username": "doctor_bob", "password": "password123", "full_name": "Dr. Bob Smith", "address": "456 Health St", "hospital_designation": "General Practitioner", "role": "doctor"},
+            {"username": "nurse_carol", "password": "password123", "full_name": "Carol Danvers", "address": "789 Care Ave", "hospital_designation": "Registered Nurse", "role": "nurse"},
+            {"username": "admin_dave", "password": "password123", "full_name": "Dave Administrator", "address": "1 Admin Plaza", "hospital_designation": "System Admin", "role": "admin"},
         ]
 
         created_users = {}
@@ -435,7 +623,7 @@ if __name__ == '__main__':
     try:
         engine = initialize_database()
         print("Database initialized.")
-        populate_example_data(engine)
+        populate_example_data()
 
     except Exception as e:
         print(f"An error occurred: {e}")
