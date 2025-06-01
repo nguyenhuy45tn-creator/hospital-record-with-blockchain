@@ -33,6 +33,20 @@
             tr:nth-child(even) {
                 background-color: #dddddd;
             }
+            ul, ol {
+                list-style: none; /* Remove default bullets/numbers */
+                padding: 0;
+            }
+
+            li {
+                border: 2px solid #333;
+                border-radius: 8px;
+                padding: 10px 15px;
+                margin: 10px 0;
+                background-color: #f0f0f0;
+                font-family: sans-serif;
+                box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
+            }
         </style>
     </head>
     <body>
@@ -40,6 +54,7 @@
             <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="#">upgrade your browser</a> to improve your experience.</p>
         <![endif]-->
         {% block table %}{% endblock %}
+        {% block IndividualInfo %}{%endblock%}
         Do lots of stuffs
         <script src="" async defer></script>
     </body>

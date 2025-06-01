@@ -1,6 +1,5 @@
 @import "compass/css3";
 
-$breakpoint-alpha: 480px;
 
 .rwd-table {
   margin: 1em 0;
@@ -93,4 +92,17 @@ h1 {
   th, td:before {
     color: #dd5;
   }
+}
+
+.user_info{
+  border-style: solid;
+  border-radius: 1px;
+}
+
+.user_info_inner{
+  display: flex;
+  border-style: solid;
+  width: 30%;
+  height: 60px;
+  align-items: center;
 }

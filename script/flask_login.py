@@ -2,13 +2,23 @@ from flask import Flask, render_template_string, request, redirect, url_for
 import flask_login
 from flask import session
 from uuid import uuid4
+from pathlib import Path
+import os
+
+#cusotm import
+from script.renderer import render_all_user_information
+from script.renderer import render_view_user_information
 
 app = Flask(__name__)
 app.secret_key = "super secret string"
+cwd = Path(os.getcwd())
+app.static_folder = cwd/"script"/"static"
 
-login_manager = flask_login.LoginManager()
+if not app.has_static_folder:
+    raise ImportError("No static folder found")
+# login_manager = flask_login.LoginManager()
 
-login_manager.init_app()
+# login_manager.init_app()
 
 # Simple HTML form template
 form_html = '''
@@ -43,5 +53,23 @@ def login():
 
     return render_template_string(form_html, message=message)
 
+@app.route('/user_information', methods=["GET"])
+def get_all_user_information():
+    return render_all_user_information()
+
+@app.route('/user_information/<user_id>', methods=["GET"])
+def get_individual_user_information(user_id):
+    return render_view_user_information(user_id=user_id)
+
+@app.route('/edit_user_information', methods=["GET","POST"])
+def edit_individual_user_information(user_id):
+    if request.method == "GET":
+        print(request)
+        return "it is running"
+
+
 def moccasin_main():
+    app.run(debug=True)
+
+if __name__=="__main__":
     app.run(debug=True)
