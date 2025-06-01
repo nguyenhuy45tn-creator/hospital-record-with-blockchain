@@ -8,7 +8,8 @@ import os
 #cusotm import
 from script.renderer import render_all_user_information
 from script.renderer import render_view_user_information
-
+from script.renderer import render_edit_user_information
+from script.renderer import update_rendered_user_information
 app = Flask(__name__)
 app.secret_key = "super secret string"
 cwd = Path(os.getcwd())
@@ -61,12 +62,21 @@ def get_all_user_information():
 def get_individual_user_information(user_id):
     return render_view_user_information(user_id=user_id)
 
-@app.route('/edit_user_information', methods=["GET","POST"])
-def edit_individual_user_information(user_id):
-    if request.method == "GET":
-        print(request)
-        return "it is running"
-
+@app.route('/edit_user_information/<user_id>', methods=["GET","POST"])
+def edit_individual_user_information(user_id = None):
+    if request.method == "GET":  
+        return render_edit_user_information(user_id=user_id)
+    
+    if request.method == "POST":
+        patient_name = request.form.get("patient_name")
+        address = request.form.get("address")
+        dictionary = {"patient name": patient_name,
+                      "address":address}
+        print("information -------\n",dictionary)
+        return update_rendered_user_information(username=user_id,
+                                                user_information=dictionary)
+    
+    return "Error. Endpoint doesn't accept this request method."
 
 def moccasin_main():
     app.run(debug=True)

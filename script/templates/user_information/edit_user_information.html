@@ -1,3 +1,19 @@
-<textarea name="editable edit_user_information" id="ILoveYou">
-    
-</textarea>
+
+<form hx-post="/edit_user_information/{{user_id}}" hx-target="this" hx-swap="outerHTML">
+    <ul>
+        {% for column in df.columns%}
+            
+            <li >
+                <b>{{ column }}:</b>
+                <br>
+                <div>
+                    <input type="text" name="{{column.replace(' ','_')}}" value="{{ df[column].values[0] }}">
+                    <br>
+                </div>
+                
+            </li>
+            
+        {% endfor %}
+        <button >Submit</button>
+    </ul>
+</form>

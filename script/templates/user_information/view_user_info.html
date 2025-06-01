@@ -3,25 +3,32 @@
 {% block IndividualInfo %}
 
 <ul>
-    {% for column in df.columns%}
-        
-        <li >
-            <b>{{ column }}:</b>
-            <br>
-            <div class="user_info user_info_inner" id="{{column}}">
-                {{ df[column].values[0] }}
-            </div>
-            <br>
-            <br>
-            <button 
-            hx-get="/edit_user_information" 
-            hx-target="#{{column}}"> Edit</button>
-        </li>
-        
+    <div id="user-basic-info">
+        {% for column in df.columns%}
+            
+            <li >
+                <b>{{ column }}:</b>
+                <br>
+                
+                    <div class="user_info user_info_inner" >
+                        {{ df[column].values[0] }}
+                    </div>
 
+                <br>
+            </li>
+            
+        {% endfor %}
+
+        <button 
+        hx-get="/edit_user_information/{{user_id}}" 
+        hx-target="#user-basic-info"
+        hx-swap="outerHTML"> 
+            Edit
+        </button>
+    </div>
 </ul>
 
-{% endfor %}
+
 
 
 {%endblock%}
