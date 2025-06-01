@@ -1,4 +1,5 @@
-from script.db_connection import get_single_user, Role, Login, User, get_health_records,HealthcareRecord,add_user
+import script.db_connection
+from script.db_connection import get_single_user, Role, Login, User, get_health_records, HealthcareRecord, add_user, add_health_record
 from sqlalchemy.orm import Session
 from bcrypt import gensalt, hashpw
 import uuid
@@ -18,12 +19,12 @@ def test_get_single_user(db_engine):
 
         login_user_name="testusername"
         salt=gensalt()
-        password="873eh"
+        password=b"873eh"
         hashed_password = hashpw(password,salt)
         login =session.query(Login).filter_by(user_name=login_user_name).first()
         if not login:
             login = Login(user_name=login_user_name,hashed_password=hashed_password,salt=salt)
-            session.add(login_user_name)
+            session.add(login)
             session.commit()
             login = session.merge(login)
 
@@ -42,10 +43,48 @@ def test_get_single_user(db_engine):
     assert retrieved_user.address == "test street"
     
 def test_get_health_records(db_engine):
+
+    
     with Session(db_engine) as session:
+        # Add a role for the testusers
+        role_name="testrole"
+        role = session.query(Role).filter_by(role_name=role_name).first()
+        if not role:
+            role = Role(role_name = role_name, description="Test Role")
+            session.add(role)
+            session.commit()
+            role = session.merge(role)
+
+        # Login for the user with health records
+        login_name_health_user = "testusername_health"
+        salt_health_user = gensalt()
+        password_health_user = b"873eh_health"
+        hashed_password_health_user = hashpw(password_health_user, salt_health_user)
+        login_health_user = session.query(Login).filter_by(user_name=login_name_health_user).first()
+        if not login_health_user:
+            login_health_user = Login(user_name=login_name_health_user, hashed_password=hashed_password_health_user, salt=salt_health_user)
+            session.add(login_health_user)
+            session.commit()
+            login_health_user = session.merge(login_health_user)
+
+        # Login for the user with no health records
+        login_name_empty_user = "empty_testusername_no_records"
+        salt_empty_user = gensalt()
+        password_empty_user = b"873eh_empty"
+        hashed_password_empty_user = hashpw(password_empty_user, salt_empty_user)
+        login_empty_user = session.query(Login).filter_by(user_name=login_name_empty_user).first()
+        if not login_empty_user:
+            login_empty_user = Login(user_name=login_name_empty_user, hashed_password=hashed_password_empty_user, salt=salt_empty_user)
+            session.add(login_empty_user)
+            session.commit()
+            login_empty_user = session.merge(login_empty_user)
+
+
         # Add a user and associated health records
         user_sswi = uuid.uuid4()
         test_user = User(full_name="Health User", address="Health St", hospital_designation="Clinic", system_wide_identifier=user_sswi)
+        test_user.role = role
+        test_user.login_details = login_health_user
         session.add(test_user)
         session.commit()
 
@@ -69,6 +108,8 @@ def test_get_health_records(db_engine):
         # Test user exists but has no records
         empty_user_sswi = uuid.uuid4()
         empty_user = User(full_name="No Records User", address="Empty St", hospital_designation="None", system_wide_identifier=empty_user_sswi)
+        empty_user.role = role
+        empty_user.login_details = login_empty_user
         session.add(empty_user)
         session.commit()
 
@@ -97,11 +138,48 @@ def test_add_user(db_engine):
 
 def test_add_health_record(db_engine):
     with Session(db_engine) as session:
+        # Add a role for the testusers
+        role_name="testrole"
+        role = session.query(Role).filter_by(role_name=role_name).first()
+        if not role:
+            role = Role(role_name = role_name, description="Test Role")
+            session.add(role)
+            session.commit()
+            role = session.merge(role)
+
+        # Login for the test_user
+        login_name_health_user = "testusername_health"
+        salt_health_user = gensalt()
+        password_health_user = b"873eh_health"
+        hashed_password_health_user = hashpw(password_health_user, salt_health_user)
+        login_health_user = session.query(Login).filter_by(user_name=login_name_health_user).first()
+        if not login_health_user:
+            login_health_user = Login(user_name=login_name_health_user, hashed_password=hashed_password_health_user, salt=salt_health_user)
+            session.add(login_health_user)
+            session.commit()
+            login_health_user = session.merge(login_health_user)
+
+        # Login for the creator user
+        login_name_creator_user = "testusername_creator"
+        salt_creator_user = gensalt()
+        password_creator_user = b"873eh_creator"
+        hashed_password_creator_user = hashpw(password_creator_user, salt_creator_user)
+        login_creator_user = session.query(Login).filter_by(user_name=login_name_creator_user).first()
+        if not login_creator_user:
+            login_creator_user = Login(user_name=login_name_creator_user, hashed_password=hashed_password_creator_user, salt=salt_creator_user)
+            session.add(login_creator_user)
+            session.commit()
+            login_creator_user = session.merge(login_creator_user)
+
         # Create a user to associate with the health record
         user_sswi = uuid.uuid4()
         creator_sswi = uuid.uuid4()
         test_user = User(full_name="Health User", address="Health St", hospital_designation="Clinic", system_wide_identifier=user_sswi)
+        test_user.role = role
+        test_user.login_details = login_health_user
         creator_user = User(full_name="Creator User", address="Creator St", hospital_designation="Admin", system_wide_identifier=creator_sswi)
+        creator_user.role = role
+        creator_user.login_details = login_creator_user
         session.add_all([test_user, creator_user])
         session.commit()
 
