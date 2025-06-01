@@ -1,5 +1,5 @@
-import script.db_connection
 from script.db_connection import get_single_user, Role, Login, User, get_health_records, HealthcareRecord, add_user, add_health_record
+from script import db_connection
 from sqlalchemy.orm import Session
 from bcrypt import gensalt, hashpw
 import uuid
@@ -7,9 +7,12 @@ import pytest
 from sqlalchemy import select
 
 
-def test_get_single_user(db_engine):
+def test_get_single_user(db_engine, role_right_checker_db_connection):
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
+
     with Session(db_engine) as session:
-        role_name="testrole"
+        role_name="patient"
         role =session.query(Role).filter_by(role_name=role_name).first()
         if not role:
             role = Role(role_name = role_name, description="Test Role")
@@ -36,18 +39,20 @@ def test_get_single_user(db_engine):
         session.commit()
         user_sswi = test_user.system_wide_identifier
     
-    retrieved_user = get_single_user(db_engine, user_sswi)
+    retrieved_user = get_single_user(login_user_name, user_sswi)
     assert retrieved_user is not None
     assert retrieved_user.system_wide_identifier == user_sswi
     assert retrieved_user.full_name == "Test User"
     assert retrieved_user.address == "test street"
     
-def test_get_health_records(db_engine):
+def test_get_health_records(db_engine, role_right_checker_db_connection):
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
 
     
     with Session(db_engine) as session:
         # Add a role for the testusers
-        role_name="testrole"
+        role_name="nurse"
         role = session.query(Role).filter_by(role_name=role_name).first()
         if not role:
             role = Role(role_name = role_name, description="Test Role")
@@ -95,15 +100,15 @@ def test_get_health_records(db_engine):
         session.commit()
 
         # Retrieve healthcare records
-        records = get_health_records(db_engine, user_sswi)
+        records = get_health_records(login_name_health_user, user_sswi)
         assert len(records) == 2
         assert records[0].record_data["diagnosis"] == "Cough"
         assert records[1].record_data["diagnosis"] == "Headache"
 
         # Test no records for a non-existent user
         non_existent_sswi = uuid.uuid4()
-        no_records = get_health_records(db_engine, non_existent_sswi)
-        assert no_records == []
+        with pytest.raises(ValueError, match=f"Patient with SWID '{non_existent_sswi}' not found."):
+            no_records = get_health_records(login_name_health_user, non_existent_sswi)
 
         # Test user exists but has no records
         empty_user_sswi = uuid.uuid4()
@@ -113,10 +118,13 @@ def test_get_health_records(db_engine):
         session.add(empty_user)
         session.commit()
 
-        empty_records = get_health_records(db_engine, empty_user_sswi)
+        empty_records = get_health_records(login_name_health_user, empty_user_sswi)
         assert empty_records == []
 
-def test_add_user(db_engine):
+def test_add_user(db_engine, role_right_checker_db_connection):
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
+    
     # Test adding a valid user
     username = "testuser"
     password = "password123"
@@ -125,21 +133,47 @@ def test_add_user(db_engine):
     hospital_designation = "General"
 
     with Session(db_engine) as session:
+
+        role_name="admin"
+        role =session.query(Role).filter_by(role_name=role_name).first()
+        if not role:
+            role = Role(role_name = role_name, description="Test Role")
+            session.add(role)
+            session.commit()
+            role = session.merge(role)
+
+        login_user_name="testusername"
+        salt=gensalt()
+        password=b"873eh"
+        hashed_password = hashpw(password,salt)
+        login =session.query(Login).filter_by(user_name=login_user_name).first()
+        if not login:
+            login = Login(user_name=login_user_name,hashed_password=hashed_password,salt=salt)
+            session.add(login)
+            session.commit()
+            login = session.merge(login)
+
+
+        test_user = User(full_name="Creator User", address="test creator street", hospital_designation="Test_des_creator")
+        test_user.login_details = login
+        test_user.role = role
+        session.add(test_user)
+        session.commit()
+
         # Add the user
-        add_user(db_engine, username, password, full_name, address, hospital_designation)
+        add_user(requestee_username=login_user_name, full_name=full_name, address=address,hospital_designation= hospital_designation, role_for_new_user=role_name)
         user = session.query(User).filter_by(full_name=full_name).first()
         assert user is not None
         assert user.full_name == full_name
         assert user.address == address
 
-    # Test adding a duplicate user
-    with pytest.raises(ValueError, match="Login username 'testuser' already exists."):
-        add_user(db_engine, username, password, full_name, address, hospital_designation)
 
-def test_add_health_record(db_engine):
+def test_add_health_record(db_engine, role_right_checker_db_connection):
+    db_connection.engine = db_engine
+    db_connection.role_right_checker = role_right_checker_db_connection
     with Session(db_engine) as session:
         # Add a role for the testusers
-        role_name="testrole"
+        role_name="nurse"
         role = session.query(Role).filter_by(role_name=role_name).first()
         if not role:
             role = Role(role_name = role_name, description="Test Role")
@@ -185,7 +219,7 @@ def test_add_health_record(db_engine):
 
         # Add a healthcare record
         record_data = {"diagnosis": "Flu", "treatment": "Bed Rest"}
-        add_health_record(db_engine, test_user.user_id, record_data, creator_user.user_id)
+        add_health_record(requestee_username=login_name_creator_user, patient_user_id=test_user.user_id,record_data= record_data)
 
         # Validate the record in the database
         record = session.query(HealthcareRecord).filter_by(patient_user_id=test_user.user_id).first()
