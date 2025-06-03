@@ -7,7 +7,11 @@
                 <b>{{ column }}:</b>
                 <br>
                 <div>
-                    <input type="text" name="{{column.replace(' ','_')}}" value="{{ df[column].values[0] }}">
+                    <input 
+                    type="text" 
+                    name="{{column.replace(' ','_')}}" 
+                    value="{{ df[column].values[0] }}"
+                    class="user_info user_info_inner">
                     <br>
                 </div>
                 
