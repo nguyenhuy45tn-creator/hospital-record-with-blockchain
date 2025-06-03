@@ -1,6 +1,7 @@
 import pandas as pd
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from flask import url_for
+from script.db_connection import get_all_users
 
 env = Environment(
     loader=FileSystemLoader("script/templates/"),
@@ -8,29 +9,41 @@ env = Environment(
 )
 
 #mock dataset
-user_information_table = pd.read_csv("script/mock-data/test_data.csv")
+# user_information_table = pd.read_csv("script/mock-data/test_data.csv")
 
-def render_all_user_information() -> str:
-    """Renders a Jinja2 template with user information.
+def dummy(*args, **kwargs):
+    #a dummy function that do nothing so it doesn't messup url template
+    pass
+
+def render_all_user_information(requestee_username, url_for = None) -> str:
+    # """Renders a Jinja2 template with user information.
      
-    It then renders the 'user_information_table.html.jinja' 
-    template, passing the user information DataFrame 
-    and the `url_for` function to it.
+    # It then renders the 'user_information_table.html.jinja' 
+    # template, passing the user information DataFrame 
+    # and the `url_for` function to it.
 
-    Args:
-        user_id: A list of user IDs to filter the information.
-                 Currently, this parameter is not used and all
-                 user information is fetched. Defaults to None.
+    # Args:
+    #     user_id: A list of user IDs to filter the information.
+    #              Currently, this parameter is not used and all
+    #              user information is fetched. Defaults to None.
 
-    Returns:
-        A string containing the rendered HTML content.
-    """
+    # Returns:
+    #     A string containing the rendered HTML content.
+    # """
 
-    # fetch all user
+    # # fetch all user
     
+    users = get_all_users(requestee_username=requestee_username)
+    users = pd.DataFrame([user.to_dict() for user in users])
     template = env.get_template('user_information/view_all_user_information_table.html')
-    return template.render(df=user_information_table,
+    try:
+        return template.render(df=users,
                            url_for=url_for)
+    except Exception as e:
+        return template.render(df=users,
+                               url_for=dummy)
+
+
 
 def render_view_user_information(user_id: str) -> str:
     """
@@ -61,6 +74,10 @@ def update_rendered_user_information(username:str, user_information:dict) -> str
     table = user_information_table[user_information_table["username"] == username]
     print(table)
     return render_view_user_information(user_id=username)
+
+def moccasin_main():
+    with open("temp.html","w") as file:
+        file.write(render_all_user_information("admin_dave"))
 
 if __name__=="__main__":
     with open('test.html','w') as file:
