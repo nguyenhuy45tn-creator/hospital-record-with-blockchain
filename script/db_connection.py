@@ -20,11 +20,12 @@ from sqlalchemy_continuum import make_versioned, utils as continuum_utils
 from bcrypt import hashpw, checkpw, gensalt
 from random import choices
 from script.interface import RoleRightChecker 
+from script.contract import user_right_checker as role_right_checker
 from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA,READ_OWN_HEALTHCARE_RECORD_RIGHT, ADD_USER_ROLE, CHANGE_OWN_PASSWORD_RIGHT, ADMIN_CHANGE_USER_PASSWORD_RIGHT
 
 # Global variables for engine and role_right_checker
-engine = None
-role_right_checker = None
+
+
 
 # Define the base class for declarative models
 Base = declarative_base()
@@ -42,6 +43,7 @@ class Role(Base):
 
     def __repr__(self):
         return f"<Role(role_name='{self.role_name}')>"
+    
     
 class Login(Base):
     __tablename__ = 'logins'
@@ -115,6 +117,20 @@ class User(Base):
             except Exception: # pragma: no cover (should not happen if persisted and versioned)
                 pass # Keep version_display as None
         return f"<User(user_name='{self.user_name}', system_id='{self.system_wide_identifier}', version={version_display})>"
+    
+    def to_dict(self):
+        return {
+            'user_id': self.user_id,
+            'system_wide_identifier': str(self.system_wide_identifier) if self.system_wide_identifier else None,
+            'user_name': self.user_name,
+            'full_name': self.full_name,
+            'address': self.address,
+            'hospital_designation': self.hospital_designation,
+            'last_updated_at': self.last_updated_at.isoformat() if self.last_updated_at else None,
+            'updated_by_user_id': self.updated_by_user_id,
+            'user_role_name': self.user_role_name
+        }
+        
 
 class HealthcareRecord(Base):
     __versioned__ = {}
@@ -168,6 +184,9 @@ def initialize_database():
     Base.metadata.create_all(engine)
 
     return engine
+
+engine = initialize_database()
+
 
 def _get_requestee_user_and_role(session, requestee_username: str):
     """Helper to fetch the requestee user and their role name."""
@@ -618,6 +637,17 @@ def populate_example_data():
         session.commit()
         print("Example data population complete (or data already existed).")
 
+def moccasin_main():
+    try:
+        engine = initialize_database()
+        print("Database initialized.")
+        populate_example_data()
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        print("Please ensure the database server is running, the database exists,")
+        print("and the connection string (user, password, host, port, dbname) is correct.")
+        print("For PostgreSQL, you might need to install 'psycopg2-binary': pip install psycopg2-binary")
 
 if __name__ == '__main__':
     try:
