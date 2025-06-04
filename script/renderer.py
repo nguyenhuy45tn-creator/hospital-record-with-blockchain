@@ -1,7 +1,10 @@
 import pandas as pd
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from flask import url_for
+
 from script.db_connection import get_all_users
+from script.db_connection import get_single_user
+from script.db_connection import update_patient_basic_data
 
 env = Environment(
     loader=FileSystemLoader("script/templates/"),
@@ -45,35 +48,44 @@ def render_all_user_information(requestee_username, url_for = None) -> str:
 
 
 
-def render_view_user_information(user_id: str) -> str:
+def render_view_user_information(requestee_id, system_wide_id) -> str:
     """
     User information can only be edited one at a time. Mass editing 
     is diable.
     """
-    table = user_information_table[user_information_table["username"] == user_id]
-    template = env.get_template("user_information/view_user_info.html")
+    user = get_single_user(requestee_username=requestee_id,
+                         user_system_wide_identifier=system_wide_id)
+    table = pd.DataFrame([user.to_dict(),])
+    template = env.get_template('user_information/view_user_info.html')
     return template.render(df=table,
-                           user_id=user_id,
+                           user_id=system_wide_id,
                            url_for=url_for)
 
-def render_edit_user_information(user_id: str) -> str:
-    """
-    User information can only be edited one at a time. Mass editing 
-    is diable.
-    """
-    table = user_information_table[user_information_table["username"] == user_id]
+def render_edit_user_information(requestee_id, system_wide_id) -> str:
+    user = get_single_user(requestee_username=requestee_id,
+                         user_system_wide_identifier=system_wide_id)
+    table = pd.DataFrame([user.to_dict(),])
     template = env.get_template("user_information/edit_user_information.html")
-    return template.render(user_id=user_id,
-                           df=table)
+    return template.render(user_id=system_wide_id,
+                           df=table,
+                           url_for=url_for)
 
-def update_rendered_user_information(username:str, user_information:dict) -> str:
-    global user_information_table
-    user_selector = user_information_table["username"] == username
-    for key in user_information.keys():
-        user_information_table.loc[user_selector, key] = user_information[key]
-    table = user_information_table[user_information_table["username"] == username]
-    print(table)
-    return render_view_user_information(user_id=username)
+def update_rendered_user_information(requestee_username,
+                                    system_wide_id,
+                                    record_data) -> str:
+    # global user_information_table
+    # user_selector = user_information_table["username"] == username
+    # for key in user_information.keys():
+    #     user_information_table.loc[user_selector, key] = user_information[key]
+    # table = user_information_table[user_information_table["username"] == username]
+
+
+    update_patient_basic_data(
+        requestee_username=requestee_username,
+        sys_wide_id= system_wide_id,
+        record_data= record_data)
+    return render_view_user_information(requestee_id=requestee_username,
+                                        system_wide_id=system_wide_id)
 
 def moccasin_main():
     with open("temp.html","w") as file:

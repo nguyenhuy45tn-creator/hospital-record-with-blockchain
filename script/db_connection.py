@@ -238,6 +238,7 @@ def get_single_user(requestee_username: str, user_system_wide_identifier:uuid.UU
         if not target_user_for_swid_check:
             raise ValueError(f"User with SWID '{user_system_wide_identifier}' not found.")
 
+        role_right_checker = create_role_right_checker()
         if requestee_user.system_wide_identifier == user_system_wide_identifier:
             _check_access(role_right_checker, requestee_role_name, READ_OWN_PATIENT_BASIC_DATA, f"view own profile (SWID: {user_system_wide_identifier})")
         else:
@@ -440,7 +441,44 @@ def update_health_record(requestee_username: str, record_id:int, record_data:dic
             return
         else:
             raise ValueError(f"Record with ID '{record_id}' not found.")
-    
+
+def update_patient_basic_data(requestee_username: str, sys_wide_id:int, record_data:dict):
+    """
+    Updates an existing healthcare record.
+    Access control is performed. The requestee becomes the updater of the record.
+
+    Finds the record by its primary key ID and updates its data,
+    the last updated timestamp, and the ID of the user performing the update.
+
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
+
+    Args:
+        requestee_username (str): The username of the user making the request (and updating the record).
+        record_id (int): The primary key ID of the healthcare record to update.
+        record_data (dict): The new dictionary data for the record.
+
+    Raises:
+        PermissionError: If the requestee does not have permission to update the health record.
+        sqlalchemy.orm.exc.NoResultFound: If the record_id does not exist.
+        ValueError: If requestee_username is invalid.
+    """
+    role_right_checker = create_role_right_checker()
+    with Session(engine) as session:
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        _check_access(role_right_checker, requestee_role_name, WRITE_PATIENT_BASIC_DATA, f"fail to update patient basic info")
+
+        query = select(User).where(User.system_wide_identifier == sys_wide_id)
+        record = session.execute(query).scalar_one()
+        if record:
+            record.full_name = record_data["full_name"]
+            record.address = record_data["address"]
+            record.last_updated_at = datetime.now(timezone.utc)
+            record.last_updated_by_user_id = requestee_user.user_id
+            session.commit()
+            return
+        else:
+            raise ValueError(f"Cannot find user")
+        
 def add_role(requestee_username: str, role_name_to_add:str, description:str):
     """
     Adds a new role to the database.

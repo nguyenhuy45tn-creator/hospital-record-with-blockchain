@@ -92,28 +92,31 @@ def login():
 @app.route('/user_information', methods=["GET"])
 @login_required 
 def get_all_user_information():
-    return render_all_user_information("doctor_bob")
+    return render_all_user_information(current_user.id)
 
-@app.route('/user_information/<user_id>', methods=["GET"])
+@app.route('/user_information/<systemwide_id>', methods=["GET"])
 @login_required 
-def get_individual_user_information(user_id):
-    return render_view_user_information(user_id=user_id)
+def get_individual_user_information(systemwide_id):
+    return render_view_user_information(requestee_id=current_user.id,
+                                        system_wide_id=systemwide_id)
 
-@app.route('/edit_user_information/<user_id>', methods=["GET","POST"])
+@app.route('/edit_user_information/<systemwide_id>', methods=["GET","POST"])
 @login_required 
-def edit_individual_user_information(user_id = None):
+def edit_individual_user_information(systemwide_id):
     if request.method == "GET":  
-        return render_edit_user_information(user_id=user_id)
+        return render_edit_user_information(
+            requestee_id=current_user.id,
+            system_wide_id=systemwide_id)
     
     if request.method == "POST":
-        patient_name = request.form.get("patient_name")
+        patient_name = request.form.get("full_name")
         address = request.form.get("address")
-        dictionary = {"patient name": patient_name,
+        dictionary = {"full_name": patient_name,
                       "address":address}
         print("information -------\n",dictionary)
-        return update_rendered_user_information(username=user_id,
-                                                user_information=dictionary)
-    
+        return update_rendered_user_information(requestee_username=current_user.id,
+        system_wide_id=systemwide_id,
+        record_data=dictionary)
     return "Error. Endpoint doesn't accept this request method."
 
 @app.route('/logout')

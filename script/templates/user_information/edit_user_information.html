@@ -4,16 +4,27 @@
         {% for column in df.columns%}
             
             <li >
-                <b>{{ column }}:</b>
-                <br>
-                <div>
-                    <input 
-                    type="text" 
-                    name="{{column.replace(' ','_')}}" 
-                    value="{{ df[column].values[0] }}"
-                    class="user_info user_info_inner">
+                
+                {% if column in ["full_name","address"] %}
+                    <b>{{ column }}:</b>
                     <br>
-                </div>
+                    <div>
+                        <input 
+                        type="text" 
+                        name="{{column.replace(' ','_')}}" 
+                        value="{{ df[column].values[0] }}"
+                        class="user_info user_info_inner">
+                        <br>
+                    </div>
+                {% elif column in ["updated_by_user_id"]%}
+                    
+                {% else %}
+                    <b>{{ column }}:</b>
+                    <br>
+                     <div class="user_info user_info_inner" >
+                        {{ df[column].values[0] }}
+                    </div>
+                {% endif %}
                 
             </li>
             

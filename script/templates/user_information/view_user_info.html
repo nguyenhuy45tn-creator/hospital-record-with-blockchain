@@ -7,14 +7,23 @@
         {% for column in df.columns%}
             
             <li >
-                <b>{{ column }}:</b>
-                <br>
                 
+                {% if column in ["full_name","address"] %}
+                    <b>{{ column }}:</b>
+                    <br>
                     <div class="user_info user_info_inner" >
                         {{ df[column].values[0] }}
                     </div>
-
-                <br>
+                {% elif column in ["updated_by_user_id"]%}
+                    
+                {% else %}
+                    <b>{{ column }}:</b>
+                    <br>
+                     <div class="user_info user_info_inner" >
+                        {{ df[column].values[0] }}
+                    </div>
+                {% endif %}
+                
             </li>
             
         {% endfor %}
