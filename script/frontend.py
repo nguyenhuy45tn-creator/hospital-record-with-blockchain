@@ -134,6 +134,7 @@ def dashboard():
 def moccasin_main():
     initialize_database()
     populate_example_data()
+    
 
     app.run(debug=True)
 
