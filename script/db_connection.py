@@ -20,7 +20,7 @@ from sqlalchemy_continuum import make_versioned, utils as continuum_utils
 from bcrypt import hashpw, checkpw, gensalt
 from random import choices
 from script.interface import RoleRightChecker 
-from script.contract import user_right_checker as role_right_checker
+from script.contract import create_role_right_checker
 from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA,READ_OWN_HEALTHCARE_RECORD_RIGHT, ADD_USER_ROLE, CHANGE_OWN_PASSWORD_RIGHT, ADMIN_CHANGE_USER_PASSWORD_RIGHT
 
 # Global variables for engine and role_right_checker
@@ -265,6 +265,7 @@ def get_all_users(requestee_username: str):
     """
     with Session(engine) as session:
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        role_right_checker = create_role_right_checker()
         _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
 
         query =  select(User)

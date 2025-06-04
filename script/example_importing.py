@@ -1,4 +1,6 @@
-from script.contract import user_right_checker
+from script.contract import create_role_right_checker
+
+user_right_checker = create_role_right_checker()
 
 print("creating user with id: 2")
 user_right_checker.add_role('patient')
