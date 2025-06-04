@@ -92,7 +92,7 @@ def login():
 @app.route('/user_information', methods=["GET"])
 @login_required 
 def get_all_user_information():
-    return render_all_user_information()
+    return render_all_user_information("doctor_bob")
 
 @app.route('/user_information/<user_id>', methods=["GET"])
 @login_required 
