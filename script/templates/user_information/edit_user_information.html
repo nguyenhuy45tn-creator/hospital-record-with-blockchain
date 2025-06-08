@@ -1,34 +1,30 @@
 
 <form hx-post="/edit_user_information/{{user_id}}" hx-target="this" hx-swap="outerHTML">
-    <ul>
-        {% for column in df.columns%}
+    {% for column in df.columns%}
+        {% if column in ["full_name","address"] %}
+            <div class="mb-3 row">
+                <label for="staticEmail" id="staticEmail" class="col-sm-2 col-form-label">{{ column }}</label>
+                <!-- <div class="col-sm-2" >
+                    {{ column }}:
+                </div> -->
+                <input 
+                type="text" 
+                name="{{column.replace(' ','_')}}" 
+                value="{{ df[column].values[0] }}"
+                class="form-control">
+            </div>
+        {% elif column in ["updated_by_user_id"]%}
             
-            <li >
-                
-                {% if column in ["full_name","address"] %}
-                    <b>{{ column }}:</b>
-                    <br>
-                    <div>
-                        <input 
-                        type="text" 
-                        name="{{column.replace(' ','_')}}" 
-                        value="{{ df[column].values[0] }}"
-                        class="user_info user_info_inner">
-                        <br>
-                    </div>
-                {% elif column in ["updated_by_user_id"]%}
-                    
-                {% else %}
-                    <b>{{ column }}:</b>
-                    <br>
-                     <div class="user_info user_info_inner" >
-                        {{ df[column].values[0] }}
-                    </div>
-                {% endif %}
-                
-            </li>
-            
-        {% endfor %}
-        <button >Submit</button>
-    </ul>
+        {% else %}
+            <div class="mb-3 row">
+                <div class="col-sm-2" >
+                {{ column }}:
+                </div>
+                <div class="col-sm-8" >
+                    {{ df[column].values[0] }}
+                </div>
+            </div> 
+        {%endif%}
+    {% endfor %}
+    <button >Submit</button>
 </form>

@@ -1,8 +1,10 @@
 
 from script.interface import RoleRightChecker
 import sqlite3
-# from deploy import UserRightChecker
-# from boa.deployments import Deployment
+from boa.contracts.abi.abi_contract import ABIContract
+import boa
+from flask import g
+from eth_account import Account 
 
 # config = get_config()
 # active_network = config.get_active_network()
@@ -12,12 +14,11 @@ import sqlite3
 #                         .get_latest_contract_checked("RoleRightChecker"))
 
 def create_role_right_checker() -> RoleRightChecker:
-    from boa.contracts.abi.abi_contract import ABIContract
-    import boa
-    # boa.interpret.set_cache_dir(None)
-    import boa.interpret
-    from eth_account import Account 
 
+    
+    if "role_right_checker" in g:
+        return g.role_right_checker
+    
     boa.set_network_env("http://127.0.0.1:8545")
     contract_info = get_latest_contract_information("RoleRightChecker")
 
@@ -28,7 +29,9 @@ def create_role_right_checker() -> RoleRightChecker:
                             .load_partial(contract_info[0])
                             .at(contract_info[1]))
 
-    return user_right_checker
+    g.role_right_checker = user_right_checker
+
+    return g.role_right_checker
 
 def get_latest_contract_information(contract_name: str):
     with sqlite3.connect("deployment_information/ganache_deployments.db") as con:

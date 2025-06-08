@@ -21,6 +21,7 @@ from bcrypt import hashpw, checkpw, gensalt
 from random import choices
 from script.interface import RoleRightChecker 
 from script.contract import create_role_right_checker
+
 from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA,READ_OWN_HEALTHCARE_RECORD_RIGHT, ADD_USER_ROLE, CHANGE_OWN_PASSWORD_RIGHT, ADMIN_CHANGE_USER_PASSWORD_RIGHT
 
 # Global variables for engine and role_right_checker

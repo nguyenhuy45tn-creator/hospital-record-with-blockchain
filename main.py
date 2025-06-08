@@ -13,6 +13,7 @@ from script.renderer import render_all_user_information
 from script.renderer import render_view_user_information
 from script.renderer import render_edit_user_information
 from script.renderer import update_rendered_user_information
+
 app = Flask(__name__)
 app.secret_key = "super secret string"
 cwd = Path(os.getcwd())
@@ -138,7 +139,10 @@ def moccasin_main():
     initialize_database()
     populate_example_data()
 
-    app.run(debug=True, threaded=False, processes = 4)
+    app.run(debug=True, 
+            # threaded=False, 
+            # processes = 4
+    )
 
 if __name__=="__main__":
     moccasin_main()

@@ -2,40 +2,43 @@
 
 {% block IndividualInfo %}
 
-<ul>
+
+
+<div class="container"> 
     <div id="user-basic-info">
         {% for column in df.columns%}
-            
-            <li >
+            {% if column in ["full_name","address"] %}
+            <div class="mb-3 row">
+                <div class="col-sm-2" >
+                {{ column }}:
+                </div>
+                <div class="col-sm-8" >
+                    {{ df[column].values[0] }}
+                </div>
+            </div>
+            {% elif column in ["updated_by_user_id"]%}
                 
-                {% if column in ["full_name","address"] %}
-                    <b>{{ column }}:</b>
-                    <br>
-                    <div class="user_info user_info_inner" >
-                        {{ df[column].values[0] }}
-                    </div>
-                {% elif column in ["updated_by_user_id"]%}
-                    
-                {% else %}
-                    <b>{{ column }}:</b>
-                    <br>
-                     <div class="user_info user_info_inner" >
-                        {{ df[column].values[0] }}
-                    </div>
-                {% endif %}
-                
-            </li>
-            
+            {% else %}
+            <div class="mb-3 row">
+                <div class="col-sm-2" >
+                {{ column }}:
+                </div>
+                <div class="col-sm-8" >
+                    {{ df[column].values[0] }}
+                </div>
+            </div>
+            {% endif %}
         {% endfor %}
-
-        <button 
-        hx-get="/edit_user_information/{{user_id}}" 
-        hx-target="#user-basic-info"
-        hx-swap="outerHTML"> 
-            Edit
-        </button>
     </div>
-</ul>
+            <button 
+                hx-get="/edit_user_information/{{user_id}}" 
+                hx-target="#user-basic-info"
+                hx-swap="outerHTML"> 
+                    Edit
+            </button>
+</div>
+
+
 
 
 
