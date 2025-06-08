@@ -138,7 +138,7 @@ def moccasin_main():
     initialize_database()
     populate_example_data()
 
-    app.run(debug=True)
+    app.run(debug=True, threaded=False, processes = 4)
 
 if __name__=="__main__":
     moccasin_main()

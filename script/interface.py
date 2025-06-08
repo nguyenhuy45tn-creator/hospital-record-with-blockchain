@@ -1,5 +1,5 @@
-from moccasin.boa_tools import VyperContract
-from boa.contracts.abi.abi_contract import ABIContract
+# from moccasin.boa_tools import VyperContract
+# from boa.contracts.abi.abi_contract import ABIContract
 from datetime import datetime
 class uint128(int):
     # this is only for better notation
@@ -51,7 +51,7 @@ class RoleRightChecker:
             -1: The user doesn't exist.
     """
 
-    def __init__(self, user_right_checker: ABIContract):
+    def __init__(self, user_right_checker):
         self.user_right_checker = user_right_checker
 
 

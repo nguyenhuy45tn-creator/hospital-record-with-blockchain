@@ -14,7 +14,6 @@ import sqlite3
 def create_role_right_checker() -> RoleRightChecker:
     from boa.contracts.abi.abi_contract import ABIContract
     import boa
-    boa.interpret.disable_cache()
     # boa.interpret.set_cache_dir(None)
     import boa.interpret
     from eth_account import Account 
