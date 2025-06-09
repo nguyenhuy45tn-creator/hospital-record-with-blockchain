@@ -273,6 +273,8 @@ def get_all_users(requestee_username: str):
         query =  select(User)
         output = session.execute(query).scalars().all()
     return output
+        
+
 
 def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
     """
@@ -569,6 +571,12 @@ def check_password(username: str, password_to_check: str) -> bool:
             return False  # User not found
 
         return checkpw(password_to_check.encode('utf-8'), login_entry.hashed_password)
+
+def get_system_wide_id(requestee_username: str) -> tuple[str, str]:
+
+    with Session(engine) as session:
+        requestee, role = _get_requestee_user_and_role(session, requestee_username)
+    return requestee.system_wide_identifier, role
 
 def populate_example_data():
     """
