@@ -8,6 +8,7 @@ from script.db_connection import update_patient_basic_data
 from script.db_connection import get_system_wide_id
 from script.db_connection import check_search_access
 from script.db_connection import search_users
+from flask import redirect, url_for
 
 from script import roles
 
@@ -130,7 +131,7 @@ def render_user_information(requestee_username: str):
         return render_view_user_information(requestee_id=requestee_username,
                                             system_wide_id=sys_id)
     elif role in [roles.ADMIN, roles.DOCTOR, roles.NURSE]:
-        return render_all_user_information(requestee_username=requestee_username)
+        return redirect(url_for('search'))
     else:
         raise PermissionError()
 
