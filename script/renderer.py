@@ -5,6 +5,8 @@ from flask import url_for
 from script.db_connection import get_all_users
 from script.db_connection import get_single_user
 from script.db_connection import update_patient_basic_data
+from script.db_connection import get_system_wide_id
+from script import roles
 
 env = Environment(
     loader=FileSystemLoader("script/templates/"),
@@ -57,8 +59,13 @@ def render_view_user_information(requestee_id, system_wide_id) -> str:
                          user_system_wide_identifier=system_wide_id)
     table = pd.DataFrame([user.to_dict(),])
     template = env.get_template('user_information/view_user_info.html')
+
     return template.render(df=table,
-                           user_id=system_wide_id,
+                           full_name = str(user.full_name),
+                           username=str(user.user_name),
+                           user_id=str(user.user_id),
+                           sys_wide_id=str(user.system_wide_identifier),
+                           address=str(user.address),
                            url_for=url_for)
 
 def render_edit_user_information(requestee_id, system_wide_id) -> str:
@@ -66,9 +73,14 @@ def render_edit_user_information(requestee_id, system_wide_id) -> str:
                          user_system_wide_identifier=system_wide_id)
     table = pd.DataFrame([user.to_dict(),])
     template = env.get_template("user_information/edit_user_information.html")
-    return template.render(user_id=system_wide_id,
-                           df=table,
+    return template.render(df=table,
+                           full_name = str(user.full_name),
+                           username=str(user.user_name),
+                           user_id=str(user.user_id),
+                           sys_wide_id=str(user.system_wide_identifier),
+                           address=str(user.address),
                            url_for=url_for)
+
 
 def update_rendered_user_information(requestee_username,
                                     system_wide_id,
@@ -87,9 +99,22 @@ def update_rendered_user_information(requestee_username,
     return render_view_user_information(requestee_id=requestee_username,
                                         system_wide_id=system_wide_id)
 
-def moccasin_main():
-    with open("temp.html","w") as file:
-        file.write(render_all_user_information("admin_dave"))
+def render_test_template():
+    template = env.get_template("index.html")
+    return template.render(
+                           url_for=url_for)
+
+def render_user_information(requestee_username: str):
+
+    sys_id, role = get_system_wide_id(requestee_username=requestee_username)
+
+    if role == roles.PATIENT:
+        return render_view_user_information(requestee_id=requestee_username,
+                                            system_wide_id=sys_id)
+    elif role in [roles.ADMIN, roles.DOCTOR, roles.NURSE]:
+        return render_all_user_information(requestee_username=requestee_username)
+    else:
+        raise PermissionError()
 
 if __name__=="__main__":
     with open('test.html','w') as file:
