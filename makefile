@@ -10,8 +10,3 @@ test:
 
 test-ganache:
 	mox test
-
-app:
-	docker compose up
-	make ganache
-	python main.py
