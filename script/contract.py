@@ -14,10 +14,6 @@ from eth_account import Account
 #                         .get_latest_contract_checked("RoleRightChecker"))
 
 def create_role_right_checker() -> RoleRightChecker:
-
-    
-    if "role_right_checker" in g:
-        return g.role_right_checker
     
     boa.set_network_env("http://127.0.0.1:8545")
     contract_info = get_latest_contract_information("RoleRightChecker")
@@ -29,9 +25,7 @@ def create_role_right_checker() -> RoleRightChecker:
                             .load_partial(contract_info[0])
                             .at(contract_info[1]))
 
-    g.role_right_checker = user_right_checker
-
-    return g.role_right_checker
+    return user_right_checker
 
 def get_latest_contract_information(contract_name: str):
     with sqlite3.connect("deployment_information/ganache_deployments.db") as con:
