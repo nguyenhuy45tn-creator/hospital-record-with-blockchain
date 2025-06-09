@@ -22,7 +22,7 @@ def create_role_right_checker() -> RoleRightChecker:
     
     user_right_checker = RoleRightChecker(
                             boa
-                            .load_partial(contract_info[0])
+                            .load_partial("src/RoleRightChecker.vy")
                             .at(contract_info[1]))
 
     return user_right_checker
