@@ -1,0 +1,17 @@
+from script.contract import create_role_right_checker
+from script.roles import ADMIN
+from script.roles import DOCTOR
+from script.roles import PATIENT
+from script.rights import READ_PATIENT_BASIC_DATA
+from script.rights import READ_PATIENT_HEALTHCARE_RECORD_DATA
+from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_OWN_HEALTHCARE_RECORD_RIGHT
+from script.rights import WRITE_PATIENT_BASIC_DATA
+
+user_right_checker = create_role_right_checker()
+user_right_checker.add_role_w_right(ADMIN, READ_PATIENT_BASIC_DATA)
+user_right_checker.add_role_w_right(ADMIN, READ_PATIENT_HEALTHCARE_RECORD_DATA)
+user_right_checker.add_role_w_right(DOCTOR, READ_PATIENT_BASIC_DATA)
+user_right_checker.add_role_w_right(DOCTOR, READ_PATIENT_HEALTHCARE_RECORD_DATA)
+user_right_checker.add_role_w_right(PATIENT, READ_OWN_PATIENT_BASIC_DATA)
+user_right_checker.add_role_w_right(PATIENT, READ_OWN_HEALTHCARE_RECORD_RIGHT)
+user_right_checker.add_role_w_right(PATIENT, WRITE_PATIENT_BASIC_DATA)
