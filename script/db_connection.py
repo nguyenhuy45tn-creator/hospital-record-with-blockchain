@@ -398,6 +398,7 @@ def add_health_record(requestee_username: str, patient_user_id:int, record_data:
     """
     with Session(engine) as session:
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        role_right_checker = create_role_right_checker()
         _check_access(role_right_checker, requestee_role_name, WRITE_PATIENT_HEALTHCARE_RECORD_DATA, f"add health record for patient ID {patient_user_id}")
 
         # Ensure patient exists
