@@ -4,8 +4,12 @@ from flask import session
 from uuid import uuid4
 from pathlib import Path
 import os
+from jinja2 import Environment
 
-from script.db_connection import initialize_database, check_password, populate_example_data ,Login as DBLogin, Session
+# db workflow
+from script.db_connection import initialize_database, check_password
+from script.db_connection import populate_example_data, Session
+from script.db_connection import Login as DBLogin
 import script.db_connection 
 
 #cusotm import
@@ -13,6 +17,8 @@ from script.renderer import render_all_user_information
 from script.renderer import render_view_user_information
 from script.renderer import render_edit_user_information
 from script.renderer import update_rendered_user_information
+from script.renderer import render_test_template
+from script.renderer import render_user_information
 
 app = Flask(__name__)
 app.secret_key = "super secret string"
@@ -90,10 +96,12 @@ def login():
 
     return render_template_string(login_template_html)
 
+
 @app.route('/user_information', methods=["GET"])
 @login_required 
 def get_all_user_information():
-    return render_all_user_information(current_user.id)
+    return render_user_information(current_user.id)
+
 
 @app.route('/user_information/<systemwide_id>', methods=["GET"])
 @login_required 
@@ -101,7 +109,7 @@ def get_individual_user_information(systemwide_id):
     return render_view_user_information(requestee_id=current_user.id,
                                         system_wide_id=systemwide_id)
 
-@app.route('/edit_user_information/<systemwide_id>', methods=["GET","POST"])
+@app.route('/edit_user_information/basic/<systemwide_id>', methods=["GET","POST"])
 @login_required 
 def edit_individual_user_information(systemwide_id):
     if request.method == "GET":  
@@ -134,15 +142,21 @@ def dashboard():
     else:
         return redirect(url_for('login'))
 
+@app.route("/test_endpoint")
+def test():
+
+
+    return render_test_template()
 
 def moccasin_main():
     initialize_database()
     populate_example_data()
 
     app.run(debug=True, 
-            # threaded=False, 
-            # processes = 4
+            threaded=False, 
+            processes = 4
     )
+
 
 if __name__=="__main__":
     moccasin_main()
