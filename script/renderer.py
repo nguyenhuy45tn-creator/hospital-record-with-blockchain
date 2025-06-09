@@ -6,6 +6,9 @@ from script.db_connection import get_all_users
 from script.db_connection import get_single_user
 from script.db_connection import update_patient_basic_data
 from script.db_connection import get_system_wide_id
+from script.db_connection import check_search_access
+from script.db_connection import search_users
+
 from script import roles
 
 env = Environment(
@@ -81,6 +84,14 @@ def render_edit_user_information(requestee_id, system_wide_id) -> str:
                            address=str(user.address),
                            url_for=url_for)
 
+def render_search_page(requestee_id) -> str:
+    try:
+        check_search_access(requestee_id)
+    except PermissionError:
+        return "Error \n" + "you don't have the right to access"
+    template = env.get_template("search-page.html")
+    return template.render(url_for=url_for)
+
 
 def update_rendered_user_information(requestee_username,
                                     system_wide_id,
@@ -98,6 +109,13 @@ def update_rendered_user_information(requestee_username,
         record_data= record_data)
     return render_view_user_information(requestee_id=requestee_username,
                                         system_wide_id=system_wide_id)
+
+def render_search_result(requestee_usernam, search_phrase):
+    search_result:list[str] = search_users(
+        requestee_username=requestee_usernam,
+        search_phrase=search_phrase)
+    template = env.get_template("search/search-result.html")
+    return template.render(results=search_result)
 
 def render_test_template():
     template = env.get_template("index.html")

@@ -10990,3 +10990,7 @@ section.resume-section .resume-section-content {
 #user-info-title {
   margin-bottom: 2rem;
 }
+
+#search-form {
+  margin: 3%;
+}

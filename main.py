@@ -19,6 +19,9 @@ from script.renderer import render_edit_user_information
 from script.renderer import update_rendered_user_information
 from script.renderer import render_test_template
 from script.renderer import render_user_information
+from script.renderer import render_search_page
+from script.renderer import render_search_result
+
 
 app = Flask(__name__)
 app.secret_key = "super secret string"
@@ -141,6 +144,18 @@ def dashboard():
         return redirect(url_for('get_all_user_information'))#Filler: should redirect to individual user information once we the test data anymore
     else:
         return redirect(url_for('login'))
+
+@app.route("/search", methods=["GET","POST"])
+@login_required
+def search():
+    if request.method == "GET":
+        return render_search_page(current_user.id)
+    if request.method == "POST":
+        query_phrase = request.form.get("search")
+        if query_phrase:
+            return render_search_result(current_user.id, query_phrase)
+        else:
+            return "No search phrase found"
 
 @app.route("/test_endpoint")
 def test():

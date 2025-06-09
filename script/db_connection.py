@@ -11,7 +11,8 @@ from sqlalchemy import (
     ForeignKey,
     DateTime,
     LargeBinary,
-    select
+    select,
+    text
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, declarative_base, Session, configure_mappers
@@ -187,6 +188,8 @@ def initialize_database():
     return engine
 
 engine = initialize_database()
+
+
 
 
 def _get_requestee_user_and_role(session, requestee_username: str):
@@ -573,11 +576,41 @@ def check_password(username: str, password_to_check: str) -> bool:
 
         return checkpw(password_to_check.encode('utf-8'), login_entry.hashed_password)
 
-def get_system_wide_id(requestee_username: str) -> tuple[str, str]:
+def check_search_access(requestee_username):
 
+    with Session(engine) as session:
+        role_right_checker = create_role_right_checker()
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+    print("role name----------", requestee_role_name)
+    _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
+
+def search_users(requestee_username, search_phrase):
+    with Session(engine) as session:
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        role_right_checker = create_role_right_checker()
+        _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
+
+        query = f""" 
+            SELECT * 
+            FROM users
+            WHERE LEFT(CAST(system_wide_identifier AS VARCHAR(20)), 
+                {len(search_phrase)}) = '{search_phrase}'
+        """
+        result = session.execute(text(query)).fetchall()
+    results = [row.__str__() for row in result]
+    return results
+
+
+
+def get_system_wide_id(requestee_username: str) -> tuple[str, str]:
+    """
+    Purposefully left no security check since the informaiton returned is 
+    highly low impact. This is to classify user_information page.
+    """
     with Session(engine) as session:
         requestee, role = _get_requestee_user_and_role(session, requestee_username)
     return requestee.system_wide_identifier, role
+
 
 def populate_example_data():
     """
