@@ -12,7 +12,9 @@ from sqlalchemy import (
     DateTime,
     LargeBinary,
     select,
-    text
+    text,
+    cast,
+    and_
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, declarative_base, Session, configure_mappers
@@ -590,22 +592,15 @@ def search_users(requestee_username, search_phrase):
         role_right_checker = create_role_right_checker()
         _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
 
-        query = f""" 
-            SELECT * 
-            FROM users
-            WHERE 
-                LEFT(
-                    CAST(
-                        system_wide_identifier AS VARCHAR(20)), 
-                        {len(search_phrase)}
-                    ) = :search_phrase
-                OR LEFT(
-                    CAST(
-                        full_name AS VARCHAR(20)), 
-                        {len(search_phrase)}
-                    ) = :search_phrase
-        """
-        result = session.execute(text(query), {"search_phrase":search_phrase}).fetchall()
+        # Use parameterized query to prevent SQL injection
+        query = select(User).where(
+            and_(
+                func.left(cast(User.system_wide_identifier, String(36)), len(search_phrase)) == search_phrase,
+                User.user_role_name != "admin"
+            )
+        )
+        result = session.execute(query).scalars().all()
+        
     results = [row.__str__() for row in result]
     return results
 
