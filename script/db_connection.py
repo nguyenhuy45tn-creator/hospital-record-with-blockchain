@@ -14,7 +14,8 @@ from sqlalchemy import (
     select,
     text,
     cast,
-    and_
+    and_,
+    or_
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, declarative_base, Session, configure_mappers
@@ -23,6 +24,7 @@ from sqlalchemy_continuum import make_versioned, utils as continuum_utils
 from bcrypt import hashpw, checkpw, gensalt
 from random import choices
 from script.interface import RoleRightChecker 
+from script.roles import ADMIN
 from script.contract import create_role_right_checker
 
 from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA,READ_OWN_HEALTHCARE_RECORD_RIGHT, ADD_USER_ROLE, CHANGE_OWN_PASSWORD_RIGHT, ADMIN_CHANGE_USER_PASSWORD_RIGHT
@@ -586,7 +588,7 @@ def check_search_access(requestee_username):
     print("role name----------", requestee_role_name)
     _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
 
-def search_users(requestee_username, search_phrase):
+def search_users(requestee_username, search_phrase:str):
     with Session(engine) as session:
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
         role_right_checker = create_role_right_checker()
@@ -595,13 +597,41 @@ def search_users(requestee_username, search_phrase):
         # Use parameterized query to prevent SQL injection
         query = select(User).where(
             and_(
-                func.left(cast(User.system_wide_identifier, String(36)), len(search_phrase)) == search_phrase,
+                or_(
+                    func.left(cast(User.system_wide_identifier, String(36)), len(search_phrase)) == search_phrase,
+                    func.lower(func.left(cast(User.full_name, String(36)), len(search_phrase))) == search_phrase.lower()
+                ),
                 User.user_role_name != "admin"
             )
         )
-        result = session.execute(query).scalars().all()
-        
-    results = [row.__str__() for row in result]
+        result = session.execute(query).all()
+        # query = f""" 
+        #     SELECT * 
+        #     FROM users
+        #     WHERE 
+        #         (
+        #             LEFT(
+        #                 CAST(
+        #                     system_wide_identifier AS VARCHAR(20)), 
+        #                     {len(search_phrase)}
+        #                 ) = :search_phrase
+        #             OR LEFT(
+        #                 CAST(
+        #                     full_name AS VARCHAR(20)), 
+        #                     {len(search_phrase)}
+        #                 ) = :search_phrase
+        #         )
+        #         AND user_role_name <> '{ADMIN}'       
+        # """
+        # #now it is safe against injection
+        # result = session.execute(
+        #     text(query), 
+        #     {"search_phrase": search_phrase}).fetchall()
+
+    results = []
+    for row in result:
+        for user in row.tuple():
+            results.append(user.to_dict())
     return results
 
 
