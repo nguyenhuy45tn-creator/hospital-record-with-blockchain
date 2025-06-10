@@ -593,10 +593,19 @@ def search_users(requestee_username, search_phrase):
         query = f""" 
             SELECT * 
             FROM users
-            WHERE LEFT(CAST(system_wide_identifier AS VARCHAR(20)), 
-                {len(search_phrase)}) = '{search_phrase}'
+            WHERE 
+                LEFT(
+                    CAST(
+                        system_wide_identifier AS VARCHAR(20)), 
+                        {len(search_phrase)}
+                    ) = :search_phrase
+                OR LEFT(
+                    CAST(
+                        full_name AS VARCHAR(20)), 
+                        {len(search_phrase)}
+                    ) = :search_phrase
         """
-        result = session.execute(text(query)).fetchall()
+        result = session.execute(text(query), {"search_phrase":search_phrase}).fetchall()
     results = [row.__str__() for row in result]
     return results
 
