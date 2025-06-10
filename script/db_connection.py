@@ -13,7 +13,8 @@ from sqlalchemy import (
     LargeBinary,
     select,
     text,
-    cast
+    cast,
+    and_
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, declarative_base, Session, configure_mappers
@@ -593,7 +594,10 @@ def search_users(requestee_username, search_phrase):
 
         # Use parameterized query to prevent SQL injection
         query = select(User).where(
-            func.left(cast(User.system_wide_identifier, String(36)), len(search_phrase)) == search_phrase
+            and_(
+                func.left(cast(User.system_wide_identifier, String(36)), len(search_phrase)) == search_phrase,
+                User.user_role_name != "admin"
+            )
         )
         result = session.execute(query).scalars().all()
         
