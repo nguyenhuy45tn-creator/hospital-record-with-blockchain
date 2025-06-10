@@ -152,6 +152,7 @@ def test_populate_is_idempotent(db_engine):
     assert count_logins1 == count_logins2, "Login count changed on second run."
     assert count_records1 == count_records2, "HealthcareRecord count changed on second run."
 
+@pytest.mark.ignore_isolation
 def test_get_single_user_success(db_engine, role_right_checker_db_connection):
     """Tests retrieving an existing user by system_wide_identifier."""
     db_connection.engine = db_engine
@@ -211,7 +212,7 @@ def test_get_single_user_not_found(db_engine, role_right_checker_db_connection):
     with pytest.raises(ValueError, match=f"User with SWID '{non_existent_swid}' not found."):
         get_single_user(requestee_username, non_existent_swid)
 
-
+@pytest.mark.ignore_isolation
 def test_get_all_users_with_data(db_engine, role_right_checker_db_connection):
     """Tests retrieving all users when some users exist."""
     db_connection.engine = db_engine
@@ -232,6 +233,7 @@ def test_get_all_users_with_data(db_engine, role_right_checker_db_connection):
     expected_usernames = {data["username"] for data in EXPECTED_USERS_DATA}
     assert retrieved_usernames == expected_usernames
 
+@pytest.mark.ignore_isolation
 def test_get_health_records_user_not_found(db_engine, role_right_checker_db_connection):
     """Tests that ValueError is raised when the patient user SWID does not exist."""
     db_connection.engine = db_engine
@@ -243,6 +245,7 @@ def test_get_health_records_user_not_found(db_engine, role_right_checker_db_conn
     with pytest.raises(ValueError, match=f"Patient with SWID '{non_existent_swid}' not found."):
         get_health_records(requestee_username, non_existent_swid)
 
+@pytest.mark.ignore_isolation
 def test_get_health_records_user_exists_no_records(db_engine, role_right_checker_db_connection):
     """Tests that an empty list is returned when the user exists but has no health records."""
     db_connection.engine = db_engine
@@ -269,6 +272,7 @@ def test_get_health_records_user_exists_no_records(db_engine, role_right_checker
     assert isinstance(records, list)
     assert len(records) == 0
 
+@pytest.mark.ignore_isolation
 def test_get_health_records_user_exists_with_one_record(db_engine, role_right_checker_db_connection):
     """Tests retrieving a single health record for an existing user."""
     db_connection.engine = db_engine
@@ -313,6 +317,7 @@ def test_get_health_records_user_exists_with_one_record(db_engine, role_right_ch
     assert retrieved_records[0].record_data == record_data
     assert retrieved_records[0].patient_user_id == patient_id
 
+@pytest.mark.ignore_isolation
 def test_get_health_records_user_exists_with_multiple_records(db_engine, role_right_checker_db_connection):
     """Tests retrieving multiple health records for an existing user."""
     db_connection.engine = db_engine
@@ -360,6 +365,7 @@ def test_get_health_records_user_exists_with_multiple_records(db_engine, role_ri
     # assert any(rec.record_data == record_data1 for rec in retrieved_records)
     # assert any(rec.record_data == record_data2 for rec in retrieved_records)
 
+@pytest.mark.ignore_isolation
 def test_add_user_success(db_engine, role_right_checker_db_connection):
     """Tests successfully adding a new user."""
     db_connection.engine = db_engine
@@ -404,6 +410,7 @@ def test_add_user_success(db_engine, role_right_checker_db_connection):
         assert user_entry.role == patient_role_obj, "User role was not assigned correctly."
         assert user_entry.user_role_name == role_for_new_user
 
+@pytest.mark.ignore_isolation
 def test_add_health_record_success(db_engine, role_right_checker_db_connection):
     """Tests successfully adding a new health record for a user."""
     db_connection.engine = db_engine
@@ -458,6 +465,7 @@ def test_add_health_record_success(db_engine, role_right_checker_db_connection):
         # Check if the timestamp is recent (e.g., within the last few seconds)
         assert (datetime.now(timezone.utc) - added_record.last_updated_at).total_seconds() < 5
 
+@pytest.mark.ignore_isolation
 def test_update_health_record_success(db_engine, role_right_checker_db_connection):
     """Tests successfully updating an existing health record."""
     db_connection.engine = db_engine
@@ -524,6 +532,7 @@ def test_update_health_record_success(db_engine, role_right_checker_db_connectio
         assert updated_record.last_updated_at is not None, "last_updated_at should be set."
         assert updated_record.last_updated_at > original_last_updated_at, "last_updated_at was not updated."
 
+@pytest.mark.ignore_isolation
 def test_update_health_record_not_found(db_engine, role_right_checker_db_connection):
     """Tests that updating a non-existent health record raises NoResultFound."""
     db_connection.engine = db_engine

@@ -8,6 +8,7 @@ from script.db_connection import Role, Login, User, HealthcareRecord, continuum_
 
 
 #Tests for role table
+@pytest.mark.ignore_isolation
 def test_create_role(db_engine):
     """
     Test creating a new Role and persisting it to the database.
@@ -29,6 +30,7 @@ def test_create_role(db_engine):
         assert isinstance(retrieved_role.users, list) # users should be an empty list initially
         assert len(retrieved_role.users) == 0
 
+@pytest.mark.ignore_isolation
 def test_role_repr(db_engine):
     """
     Test the __repr__ method of the Role model.
@@ -42,6 +44,7 @@ def test_role_repr(db_engine):
     expected_repr = f"<Role(role_name='{role_name}')>"
     assert repr(role) == expected_repr
 
+@pytest.mark.ignore_isolation
 def test_role_primary_key_uniqueness(db_engine):
     """
     Test that the role_name (primary key) enforces uniqueness.
@@ -65,6 +68,7 @@ def test_role_primary_key_uniqueness(db_engine):
 
 
 #Tests for login table
+@pytest.mark.ignore_isolation
 def test_login_repr_method():
     """Tests the __repr__ method of the Login model."""
     salt = gensalt()
@@ -72,7 +76,7 @@ def test_login_repr_method():
     login = Login(user_name="repr_user", hashed_password=hashed_password, salt=salt)
     assert repr(login) == "<Login(user_name='repr_user')>"
 
-
+@pytest.mark.ignore_isolation
 def test_login_username_primary_key_constraint(db_engine):
     """Tests that the user_name in Login is a primary key and must be unique."""
     salt = gensalt()
@@ -94,7 +98,7 @@ def test_login_username_primary_key_constraint(db_engine):
         with pytest.raises(IntegrityError):
             session.commit()
 
-
+@pytest.mark.ignore_isolation
 def test_login_user_relationship_cascade_delete(db_engine):
     """Tests that deleting a Login instance cascades to delete the associated User."""
     login_username = "user_for_cascade_delete"
@@ -135,6 +139,7 @@ def test_login_user_relationship_cascade_delete(db_engine):
             "User associated with the deleted Login should also have been deleted by cascade."
         
 #Tests for user table
+@pytest.mark.ignore_isolation
 def test_user_repr_method(db_engine):
     """Tests the __repr__ method of the User model."""
     user_name = "repr_user_for_user_model"
@@ -171,6 +176,7 @@ def test_user_repr_method(db_engine):
         assert continuum_utils.is_versioned(user)
         assert continuum_utils.count_versions(user) == 1 # Initial version means 1 total version
 
+@pytest.mark.ignore_isolation
 def test_user_creation_and_attributes(db_engine):
     """Tests basic creation of a User and its attributes."""
     user_name = "new_user_creation"
@@ -215,6 +221,7 @@ def test_user_creation_and_attributes(db_engine):
         assert retrieved_user.login_details == login
         assert login.user == retrieved_user
 
+@pytest.mark.ignore_isolation
 def test_user_system_wide_identifier_uniqueness(db_engine):
     """Tests that system_wide_identifier is unique and auto-generated."""
     with Session(db_engine) as session:
@@ -234,6 +241,7 @@ def test_user_system_wide_identifier_uniqueness(db_engine):
         assert user2.system_wide_identifier is not None
         assert user1.system_wide_identifier != user2.system_wide_identifier
 
+@pytest.mark.ignore_isolation
 def test_user_last_updated_at_on_update(db_engine):
     """Tests that last_updated_at is updated when a user record changes."""
     with Session(db_engine) as session:
@@ -257,6 +265,7 @@ def test_user_last_updated_at_on_update(db_engine):
 
         assert user.last_updated_at > initial_update_time
 
+@pytest.mark.ignore_isolation
 def test_user_self_referential_updated_by(db_engine):
     """Tests the self-referential updated_by_user relationship."""
     with Session(db_engine) as session:
@@ -281,6 +290,7 @@ def test_user_self_referential_updated_by(db_engine):
         session.refresh(updater_user) # Refresh to load the users_they_updated collection
         assert updated_user in updater_user.users_they_updated
 
+@pytest.mark.ignore_isolation
 def test_user_healthcare_record_relationships(db_engine):
     """Tests relationships to HealthcareRecord (patient_records and updated_records)."""
     with Session(db_engine) as session:
@@ -315,6 +325,7 @@ def test_user_healthcare_record_relationships(db_engine):
         assert health_record in doctor_user.updated_records
         assert health_record.last_updated_by == doctor_user
 
+@pytest.mark.ignore_isolation
 def test_user_versioning_on_update(db_engine):
     """Tests that User version increments on update."""
     with Session(db_engine) as session:
@@ -383,6 +394,7 @@ def test_user_versioning_on_update(db_engine):
 
 #Tests for healthcarerecord table
 
+@pytest.mark.ignore_isolation
 def test_healthcare_record_missing_patient_user_id(db_engine):
     """Tests that creating a HealthcareRecord without a patient_user_id raises IntegrityError."""
     with Session(db_engine) as session:
@@ -407,6 +419,7 @@ def test_healthcare_record_missing_patient_user_id(db_engine):
         with pytest.raises(IntegrityError, match=r'.*null value in column "patient_user_id".*'):
             session.commit() # patient_user_id is nullable=False
 
+@pytest.mark.ignore_isolation
 def test_healthcare_record_nullable_last_updated_by(db_engine):
     """Tests that HealthcareRecord can be created with last_updated_by_user_id as None."""
     with Session(db_engine) as session:
@@ -434,6 +447,7 @@ def test_healthcare_record_nullable_last_updated_by(db_engine):
         assert retrieved_record.last_updated_by_user_id is None
         assert retrieved_record.last_updated_by is None # Relationship should also be None
 
+@pytest.mark.ignore_isolation
 def test_healthcare_record_versioning_on_update(db_engine):
     """Tests that HealthcareRecord version increments on update."""
     with Session(db_engine) as session:

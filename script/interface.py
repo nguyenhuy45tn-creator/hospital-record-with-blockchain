@@ -128,7 +128,7 @@ class RoleRightChecker:
         assert len(right) <= 100
         
         return (self.user_right_checker
-                        .role_right_mapping(role_name, right))
+                        .check_right(role_name, right))
     
     def delete_role(self,role_name: String[100]) -> int8:
         assert len(role_name) <= 100
