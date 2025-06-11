@@ -109,8 +109,7 @@ def get_all_user_information():
 @app.route('/user_information/<systemwide_id>', methods=["GET"])
 @login_required 
 def get_individual_user_information(systemwide_id):
-    return render_view_user_information(requestee_id=current_user.id,
-                                        system_wide_id=systemwide_id)
+    return render_user_information(systemwide_id)
 
 @app.route('/edit_user_information/basic/<systemwide_id>', methods=["GET","POST"])
 @login_required 
