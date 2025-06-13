@@ -1,0 +1,105 @@
+import os
+from unittest.mock import patch
+
+import pytest
+from eth.vm.message import Message
+from requests_cache import CachedSession
+
+import boa
+from boa import Env
+from boa.contracts.abi.abi_contract import ABIContract
+from boa.explorer import SESSION
+
+crvusd = "0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E"
+voting_agent = "0xE478de485ad2fe566d49342Cbd03E49ed7DB3356"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def api_key():
+    with boa.set_etherscan(api_key=os.environ["ETHERSCAN_API_KEY"]):
+        yield
+
+
+@pytest.fixture(scope="module")
+def crvusd_contract():
+    return boa.from_etherscan(crvusd, name="crvUSD")
+
+
+@pytest.fixture(scope="module")
+def proxy_contract():
+    return boa.from_etherscan(voting_agent, name="VotingAgent")
+
+
+def test_cache(proxy_contract):
+    assert isinstance(SESSION, CachedSession)
+    with patch("requests.adapters.HTTPAdapter.send") as mock:
+        mock.side_effect = AssertionError
+
+        # cache miss for non-cached contract
+        with pytest.raises(AssertionError):
+            address = boa.env.generate_address()
+            boa.from_etherscan(address, name="VotingAgent")
+
+        # cache hit for cached contract
+        c = boa.from_etherscan(proxy_contract.address, name="VotingAgent")
+
+    assert isinstance(c, ABIContract)
+
+
+def test_crvusd_contract(crvusd_contract):
+    assert crvusd_contract.totalSupply() > 0
+    assert crvusd_contract.symbol() == "crvUSD"
+
+
+def test_proxy_contract(proxy_contract):
+    assert isinstance(proxy_contract._abi, list)
+    assert proxy_contract.minTime() == 43200
+    assert proxy_contract.voteTime() == 604800
+    assert proxy_contract.minBalance() == 2500000000000000000000
+
+
+@pytest.mark.parametrize("fresh_env", [True, False])
+def test_prefetch_state(rpc_url, fresh_env, crvusd_contract):
+    if fresh_env:
+        # the contract was loaded from abi, test it against a fresh env too
+        env = Env()
+        env.fork(rpc_url)
+    else:
+        env = boa.env
+
+    msg = Message(
+        to=crvusd_contract.address.canonical_address,
+        sender=env.eoa.canonical_address,
+        gas=30000,
+        value=0,
+        code=crvusd_contract._bytecode,
+        data=crvusd_contract.burn.prepare_calldata(0),
+    )
+    state = env.evm.vm.state
+    db = state._account_db
+    db.try_prefetch_state(msg)
+
+    # patch the RPC, so we make sure to use the cache
+    with patch("boa.rpc.EthereumRPC.fetch", side_effect=AssertionError):
+        code = db.get_code(crvusd_contract.address.canonical_address)
+        storage = db.get_storage(crvusd_contract.address.canonical_address, slot=2)
+
+        crvusd_contract.env = env
+        assert code == crvusd_contract._bytecode
+        assert storage == crvusd_contract.totalSupply()
+
+
+@pytest.mark.parametrize("prefetch", [True, False])
+def test_prefetch_state_called_on_message(proxy_contract, prefetch):
+    boa.env.evm._fork_try_prefetch_state = prefetch
+    with patch("boa.vm.fork.AccountDBFork.try_prefetch_state") as mock:
+        proxy_contract.minTime()
+        assert mock.called == prefetch
+
+
+@pytest.mark.parametrize("prefetch", [True, False])
+def test_prefetch_state_called_on_deploy(proxy_contract, prefetch):
+    boa.env.evm._fork_try_prefetch_state = prefetch
+    with patch("boa.vm.fork.AccountDBFork.try_prefetch_state") as mock:
+        boa.loads("")
+        assert mock.called == prefetch
