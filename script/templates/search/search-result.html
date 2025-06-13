@@ -1,7 +1,19 @@
-{% for result in results %}
-    <div class="mb-3 card">
-        <div class="card-body">
-            {{result}}
-        </div>
-    </div>
-{% endfor %}
+<div class="list-group">
+    {% for row in result %}
+        {% for user in row.tuple() %}
+            <a href="/user_information/{{user.system_wide_identifier}}">
+                <div class="mb-3 card">
+                    <div class="mb-3 card-header">
+                        <h2>{{user.full_name}}</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="col"> {{user.system_wide_identifier}} </div>
+                        <div class="col"> {{user.user_role_name}} </div>
+                    </div>
+                    <div class="card-footer"></div>
+                </div>
+            </a>
+
+        {% endfor %}
+    {% endfor %}
+</div>

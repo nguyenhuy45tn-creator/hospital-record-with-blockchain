@@ -116,7 +116,7 @@ def render_search_result(requestee_usernam, search_phrase):
         requestee_username=requestee_usernam,
         search_phrase=search_phrase)
     template = env.get_template("search/search-result.html")
-    return template.render(results=search_result)
+    return template.render(result=search_result)
 
 def render_test_template():
     template = env.get_template("index.html")
