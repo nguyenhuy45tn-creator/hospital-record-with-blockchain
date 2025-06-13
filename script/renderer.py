@@ -13,6 +13,9 @@ from script.contract_logger import logged
 
 from script import roles
 
+#logger
+from script.contract_logger import logged
+
 env = Environment(
     loader=FileSystemLoader("script/templates/"),
     autoescape=select_autoescape()
@@ -54,12 +57,9 @@ def render_all_user_information(requestee_username, url_for = None) -> str:
                                url_for=dummy)
 
 
-
+@logged()
 def render_view_user_information(requestee_id, system_wide_id) -> str:
-    """
-    User information can only be edited one at a time. Mass editing 
-    is diable.
-    """
+
     user = get_single_user(requestee_username=requestee_id,
                          user_system_wide_identifier=system_wide_id)
     table = pd.DataFrame([user.to_dict(),])

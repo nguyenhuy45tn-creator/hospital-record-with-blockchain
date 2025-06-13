@@ -1,13 +1,14 @@
-from src import Logger
+import boa
 from pytest import fixture
 from script.interface import Logger as interface_Logger
 from script.interface import Log
 from script.contract_logger import logged
 import json
 
-logger = Logger.deploy()
-contract_logger = interface_Logger(logger)
-
+@fixture
+def logger():
+    contract_logger = boa.load("src/Logger.vy")
+    return contract_logger
 
 def test_logged_simple_arg():
     """

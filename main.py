@@ -22,6 +22,9 @@ from script.renderer import render_user_information
 from script.renderer import render_search_page
 from script.renderer import render_search_result
 
+#logger
+from script.contract_logger import logged
+
 
 app = Flask(__name__)
 app.secret_key = "super secret string"
@@ -89,6 +92,7 @@ def login():
         password = request.form['password']
 
         # Requires db_connection.engine to be initialized.
+    
         if check_password(username, password):
             user_obj = User(username=username)
             login_user(user_obj)
