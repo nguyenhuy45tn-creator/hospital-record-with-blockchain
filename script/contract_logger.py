@@ -10,17 +10,13 @@ from datetime import datetime
 import json
 from script.interface import Logger, Log
 from script.deploy import deploy
+import boa
 
-config = get_config()
-active_network = config.get_active_network()
 # Get the latest counter of the Counter contract
-contract_logger = active_network \
-                        .get_latest_contract_checked("Logger")
+boa.set_network_env("http://127.0.0.1:8545")
+boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
+contract_logger = boa.load_partial("src/Logger.vy").at("0xb99df60f7b61F8643eE8B465869d43196C318AaA")
 
-if contract_logger is None:
-    deploy()
-    contract_logger = active_network \
-                        .get_latest_contract_checked("Logger")
 
 _logger = Logger(contract_logger)
 

@@ -156,11 +156,10 @@ class Logger:
         self.contract_logger.add_log(log_mss)
     
 
-    def get_newest(self, lower_bound: int = 0, upper_bound: int = 2*128):
-        lower_bound = max(0, lower_bound)
-        upper_bound = min(upper_bound, self.contract_logger.get_length())
-
-        return [self.contract_logger.log_db(i) for i in range(lower_bound, upper_bound)]
+    def get_newest(self, num: int):
+        length:int = self.contract_logger.get_length()
+        bound = max(length-num, 0)
+        return [self.contract_logger.log_db(i) for i in range(length, bound, -1)]
 
 
 class Log:

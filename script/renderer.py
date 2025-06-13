@@ -9,6 +9,7 @@ from script.db_connection import get_system_wide_id
 from script.db_connection import check_search_access
 from script.db_connection import search_users
 from flask import redirect, url_for
+from script.contract_logger import logged
 
 from script import roles
 
@@ -71,7 +72,7 @@ def render_view_user_information(requestee_id, system_wide_id) -> str:
                            sys_wide_id=str(user.system_wide_identifier),
                            address=str(user.address),
                            url_for=url_for)
-
+@logged()
 def render_edit_user_information(requestee_id, system_wide_id) -> str:
     user = get_single_user(requestee_username=requestee_id,
                          user_system_wide_identifier=system_wide_id)
@@ -85,6 +86,7 @@ def render_edit_user_information(requestee_id, system_wide_id) -> str:
                            address=str(user.address),
                            url_for=url_for)
 
+@logged()
 def render_search_page(requestee_id) -> str:
     try:
         check_search_access(requestee_id)
@@ -94,6 +96,7 @@ def render_search_page(requestee_id) -> str:
     return template.render(url_for=url_for)
 
 
+@logged()
 def update_rendered_user_information(requestee_username,
                                     system_wide_id,
                                     record_data) -> str:
@@ -111,6 +114,7 @@ def update_rendered_user_information(requestee_username,
     return render_view_user_information(requestee_id=requestee_username,
                                         system_wide_id=system_wide_id)
 
+@logged()
 def render_search_result(requestee_usernam, search_phrase):
     search_result:list[str] = search_users(
         requestee_username=requestee_usernam,
@@ -118,11 +122,13 @@ def render_search_result(requestee_usernam, search_phrase):
     template = env.get_template("search/search-result.html")
     return template.render(result=search_result)
 
+
 def render_test_template():
     template = env.get_template("index.html")
     return template.render(
                            url_for=url_for)
 
+@logged()
 def render_user_information(requestee_username: str):
 
     sys_id, role = get_system_wide_id(requestee_username=requestee_username)
