@@ -1,0 +1,8 @@
+version = 1
+revision = 2
+requires-python = ">=3.12"
+
+[[package]]
+name = "2025-aic-project-w6"
+version = "0.1.0"
+source = { virtual = "." }

@@ -6,3 +6,5 @@ psycopg2-binary==2.9.10
 moccasin==0.4.0
 flask==3.1.0
 flask-login
+titanoboa
+pandas

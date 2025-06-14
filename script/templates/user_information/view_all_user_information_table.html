@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}CSV Results {% endblock %}
+
+{% block header %} <h1>CSV Results</h1> {% endblock %}
+{% block table %}
+    <table border="1" cellspacing="0" cellpadding="5" class="rwd-table">
+        <thead>
+            <tr>
+                {% for column in df.columns %}
+                    <th>{{ column }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in df.values %}
+                <tr>
+                    {% for cell in row %}
+                        <td>{{ cell }}</td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

@@ -11,7 +11,11 @@ from sqlalchemy import (
     ForeignKey,
     DateTime,
     LargeBinary,
-    select
+    select,
+    text,
+    cast,
+    and_,
+    or_
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, declarative_base, Session, configure_mappers
@@ -20,11 +24,16 @@ from sqlalchemy_continuum import make_versioned, utils as continuum_utils
 from bcrypt import hashpw, checkpw, gensalt
 from random import choices
 from script.interface import RoleRightChecker 
+from script.roles import ADMIN
+from script.contract import create_role_right_checker
+
 from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA,READ_OWN_HEALTHCARE_RECORD_RIGHT, ADD_USER_ROLE, CHANGE_OWN_PASSWORD_RIGHT, ADMIN_CHANGE_USER_PASSWORD_RIGHT
 
+from os import environ
+
 # Global variables for engine and role_right_checker
-engine = None
-role_right_checker = None
+
+
 
 # Define the base class for declarative models
 Base = declarative_base()
@@ -42,6 +51,7 @@ class Role(Base):
 
     def __repr__(self):
         return f"<Role(role_name='{self.role_name}')>"
+    
     
 class Login(Base):
     __tablename__ = 'logins'
@@ -115,6 +125,20 @@ class User(Base):
             except Exception: # pragma: no cover (should not happen if persisted and versioned)
                 pass # Keep version_display as None
         return f"<User(user_name='{self.user_name}', system_id='{self.system_wide_identifier}', version={version_display})>"
+    
+    def to_dict(self):
+        return {
+            'user_id': self.user_id,
+            'system_wide_identifier': str(self.system_wide_identifier) if self.system_wide_identifier else None,
+            'user_name': self.user_name,
+            'full_name': self.full_name,
+            'address': self.address,
+            'hospital_designation': self.hospital_designation,
+            'last_updated_at': self.last_updated_at.isoformat() if self.last_updated_at else None,
+            'updated_by_user_id': self.updated_by_user_id,
+            'user_role_name': self.user_role_name
+        }
+        
 
 class HealthcareRecord(Base):
     __versioned__ = {}
@@ -150,24 +174,26 @@ class HealthcareRecord(Base):
                 pass # Keep version_display as None
         return f"<HealthcareRecord(record_id={self.record_id}, patient_user_id={self.patient_user_id}, version={version_display})>"
 
+engine = None # Initialize engine as None at module level
+
 def initialize_database():
     """
     Initializes the database connection and creates tables if they don't exist.
-    Only call once at start.
-
-    This function defines the database connection URL, creates the SQLAlchemy
-    engine, and then creates all tables defined in the Base metadata.
+    This function is idempotent for engine creation and table creation.
 
     Returns:
         sqlalchemy.engine.Engine: The created SQLAlchemy engine instance as a global variable.
     """
-    DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/sampledb"
-    configure_mappers() # Ensure all mappers are configured before creating tables
-    global engine 
-    engine = create_engine(DATABASE_URL)
-    Base.metadata.create_all(engine)
-
+    global engine
+    if engine is None:
+        DATABASE_URL = environ['DATABASE_URL']
+        configure_mappers() # Ensure all mappers are configured before creating tables
+        current_engine = create_engine(DATABASE_URL)
+        Base.metadata.create_all(current_engine)
+        engine = current_engine
+        print("Database engine initialized and tables created.")
     return engine
+
 
 def _get_requestee_user_and_role(session, requestee_username: str):
     """Helper to fetch the requestee user and their role name."""
@@ -211,6 +237,8 @@ def get_single_user(requestee_username: str, user_system_wide_identifier:uuid.UU
         sqlalchemy.orm.exc.NoResultFound: If no user with the given identifier is found.
         sqlalchemy.orm.exc.MultipleResultsFound: If multiple users somehow have the same identifier (shouldn't happen due to unique constraint).
     """
+    print("[241] requestee",requestee_username)
+    print("[241] user_system_wide_identifier",user_system_wide_identifier)
     with Session(engine) as session:
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
 
@@ -219,9 +247,14 @@ def get_single_user(requestee_username: str, user_system_wide_identifier:uuid.UU
         if not target_user_for_swid_check:
             raise ValueError(f"User with SWID '{user_system_wide_identifier}' not found.")
 
-        if requestee_user.system_wide_identifier == user_system_wide_identifier:
+        role_right_checker = create_role_right_checker()
+        print(requestee_user.system_wide_identifier)
+        
+        if requestee_user.system_wide_identifier == target_user_for_swid_check.system_wide_identifier:
+            print("[251] triggered")
             _check_access(role_right_checker, requestee_role_name, READ_OWN_PATIENT_BASIC_DATA, f"view own profile (SWID: {user_system_wide_identifier})")
         else:
+            print("[254] triggered")
             _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, f"view profile for user SWID: {user_system_wide_identifier}")
 
         query =  select(User).where(User.system_wide_identifier == user_system_wide_identifier)
@@ -246,11 +279,14 @@ def get_all_users(requestee_username: str):
     """
     with Session(engine) as session:
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        role_right_checker = create_role_right_checker()
         _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
 
         query =  select(User)
         output = session.execute(query).scalars().all()
     return output
+        
+
 
 def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
     """
@@ -374,6 +410,7 @@ def add_health_record(requestee_username: str, patient_user_id:int, record_data:
     """
     with Session(engine) as session:
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        role_right_checker = create_role_right_checker()
         _check_access(role_right_checker, requestee_role_name, WRITE_PATIENT_HEALTHCARE_RECORD_DATA, f"add health record for patient ID {patient_user_id}")
 
         # Ensure patient exists
@@ -420,7 +457,44 @@ def update_health_record(requestee_username: str, record_id:int, record_data:dic
             return
         else:
             raise ValueError(f"Record with ID '{record_id}' not found.")
-    
+
+def update_patient_basic_data(requestee_username: str, sys_wide_id:int, record_data:dict):
+    """
+    Updates an existing healthcare record.
+    Access control is performed. The requestee becomes the updater of the record.
+
+    Finds the record by its primary key ID and updates its data,
+    the last updated timestamp, and the ID of the user performing the update.
+
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
+
+    Args:
+        requestee_username (str): The username of the user making the request (and updating the record).
+        record_id (int): The primary key ID of the healthcare record to update.
+        record_data (dict): The new dictionary data for the record.
+
+    Raises:
+        PermissionError: If the requestee does not have permission to update the health record.
+        sqlalchemy.orm.exc.NoResultFound: If the record_id does not exist.
+        ValueError: If requestee_username is invalid.
+    """
+    role_right_checker = create_role_right_checker()
+    with Session(engine) as session:
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        _check_access(role_right_checker, requestee_role_name, WRITE_PATIENT_BASIC_DATA, f"fail to update patient basic info")
+
+        query = select(User).where(User.system_wide_identifier == sys_wide_id)
+        record = session.execute(query).scalar_one()
+        if record:
+            record.full_name = record_data["full_name"]
+            record.address = record_data["address"]
+            record.last_updated_at = datetime.now(timezone.utc)
+            record.last_updated_by_user_id = requestee_user.user_id
+            session.commit()
+            return
+        else:
+            raise ValueError(f"Cannot find user")
+        
 def add_role(requestee_username: str, role_name_to_add:str, description:str):
     """
     Adds a new role to the database.
@@ -510,6 +584,72 @@ def check_password(username: str, password_to_check: str) -> bool:
             return False  # User not found
 
         return checkpw(password_to_check.encode('utf-8'), login_entry.hashed_password)
+
+def check_search_access(requestee_username):
+
+    with Session(engine) as session:
+        role_right_checker = create_role_right_checker()
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+    print("role name----------", requestee_role_name)
+    _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
+
+def search_users(requestee_username, search_phrase:str):
+    with Session(engine) as session:
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        role_right_checker = create_role_right_checker()
+        _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
+
+        # Use parameterized query to prevent SQL injection
+        query = select(User).where(
+            and_(
+                or_(
+                    func.left(cast(User.system_wide_identifier, String(36)), len(search_phrase)) == search_phrase,
+                    func.lower(func.left(cast(User.full_name, String(36)), len(search_phrase))) == search_phrase.lower()
+                ),
+                User.user_role_name != "admin"
+            )
+        )
+        result = session.execute(query).all()
+        # query = f""" 
+        #     SELECT * 
+        #     FROM users
+        #     WHERE 
+        #         (
+        #             LEFT(
+        #                 CAST(
+        #                     system_wide_identifier AS VARCHAR(20)), 
+        #                     {len(search_phrase)}
+        #                 ) = :search_phrase
+        #             OR LEFT(
+        #                 CAST(
+        #                     full_name AS VARCHAR(20)), 
+        #                     {len(search_phrase)}
+        #                 ) = :search_phrase
+        #         )
+        #         AND user_role_name <> '{ADMIN}'       
+        # """
+        # #now it is safe against injection
+        # result = session.execute(
+        #     text(query), 
+        #     {"search_phrase": search_phrase}).fetchall()
+
+    # results = []
+    # for row in result:
+    #     for user in row.tuple():
+    #         results.append(user.to_dict())
+    return result # send the result directly
+
+
+
+def get_system_wide_id(requestee_username: str) -> tuple[str, str]:
+    """
+    Purposefully left no security check since the informaiton returned is 
+    highly low impact. This is to classify user_information page.
+    """
+    with Session(engine) as session:
+        requestee, role = _get_requestee_user_and_role(session, requestee_username)
+    return requestee.system_wide_identifier, role
+
 
 def populate_example_data():
     """
@@ -618,6 +758,17 @@ def populate_example_data():
         session.commit()
         print("Example data population complete (or data already existed).")
 
+def moccasin_main():
+    try:
+        engine = initialize_database()
+        print("Database initialized.")
+        populate_example_data()
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        print("Please ensure the database server is running, the database exists,")
+        print("and the connection string (user, password, host, port, dbname) is correct.")
+        print("For PostgreSQL, you might need to install 'psycopg2-binary': pip install psycopg2-binary")
 
 if __name__ == '__main__':
     try:

@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+
+{% block IndividualInfo %}
+
+<!-- <div class="container"> 
+    <div id="user-basic-info">
+        {% for column in df.columns%}
+            {% if column in ["full_name","address"] %}
+            <div class="mb-3 row">
+                <div class="col-sm-2" >
+                {{ column }}:
+                </div>
+                <div class="col-sm-8" >
+                    {{ df[column].values[0] }}
+                </div>
+            </div>
+            {% elif column in ["updated_by_user_id"]%}
+                
+            {% else %}
+            <div class="mb-3 row">
+                <div class="col-sm-2" >
+                {{ column }}:
+                </div>
+                <div class="col-sm-8" >
+                    {{ df[column].values[0] }}
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+        <button 
+            hx-get="/edit_user_information/{{user_id}}" 
+            hx-target="#user-basic-info"
+            hx-swap="outerHTML"> 
+                Edit
+        </button>
+    </div>
+</div> -->
+
+<section class="resume-section" id="patient-info">
+    <div class="resume-section-content">
+        <h1 id="user-info-title">
+            USER
+                <span class="mb-3 text-primary"> INFORMATION</span>
+        </h1>
+
+        <div class="mb-3 card" style="width: 70%" id="User-Basic-Info">
+            <!--subsection title -->
+            <div class="card-header">
+                <div class="mb-3 row align-items-center ">
+                    <div class="col-sm-1 justify-content-end">
+                        <img src="{{ url_for('static', filename='greeting-man_76769.png') }}" 
+                        alt="Italian Trulli"  
+                        width="100%">
+                    </div>
+                    <div class="col-sm-6 align-middle">
+                        <h3 class="mb-0">Personal information</h3>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- items: Basic information -->
+            <div class="card-body" id="Basic-Information-Body" style="width: 100%;">
+                <div class="mb-3 row">
+                    <!-- <div class="col-sm-2" >
+                        Full name:
+                    </div> -->
+                    <label for="full-name" class="col-sm-2">Full name:</label>
+                    <div class="col-sm-6 editable-basic-info" id="full-name">
+                        {{full_name}}
+                    </div>
+
+                </div>
+
+                <div class="mb-3 row">
+                    <!-- <div class="col-sm-2" >
+                        Address:
+                    </div> -->
+                    <label for="address" class="col-sm-2">Address:</label>
+                    <div class="col-sm-8 editable-basic-info" id="address">
+                        {{address}}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-footer">
+                <div class="row justify-content-end ">
+                    <div class="col-sm-2" >
+                        <!-- We render the whole card again -->
+                        <button 
+                            class="btn btn-outline-dark"
+                            hx-get="/edit_user_information/basic/{{sys_wide_id}}" 
+                            hx-target="#User-Basic-Info"
+                            hx-swap="outerHTML"> 
+                                <label for="edit-basic-icon"><strong><u>Edit</u></strong></label>
+                                <i class="fas fa-edit" id="edit-basic-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="mb-3 card" style="width: 70%" id="Security-Information">
+            <!-- Security information -->
+            <div class="card-header">
+                <div class=" row align-items-center">
+                    <div class="col-sm-1 justify-content-end">
+                        <img src="{{ url_for('static', filename='cyber-security.png') }}" 
+                        alt="Italian Trulli"  
+                        width="100%">
+                    </div>
+                    <div class="col-sm-10 align-middle">
+                        <h3 class="mb-0">User security information</h3>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="card-body" id="Security-Information-body" style="width: 100%;">
+                <div class="mb-3 row user-security-info">
+                    <div class="col-sm-2" >
+                        Username:
+                    </div>
+                    <div class="col-sm-8" >
+                        {{username}}
+                    </div>
+                </div>
+                <div class="mb-3 row user-security-info">
+                    <div class="col-sm-2" >
+                        Customer ID:
+                    </div>
+                    <div class="col-sm-8" >
+                        {{user_id}}
+                    </div>
+                </div>
+                <div class="mb-3 row user-security-info">
+                    <div class="col-sm-2" >
+                        Global System ID:
+                    </div>
+                    <div class="col-sm-8" >
+                        {{sys_wide_id}}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-footer">
+                <div class="row justify-content-end ">
+                    <div class="col-sm-3" >
+                        <button 
+                            class="btn btn-outline-dark"
+                            hx-get="/edit_user_information/basic/{{sys_wide_id}}" 
+                            hx-target="#Basic-Information"
+                            hx-swap="outerHTML"> 
+                                <label for="edit-basic-icon">
+                                    <strong><u>Change password</u></strong>
+                                </label>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+{%endblock%}
