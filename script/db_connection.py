@@ -174,28 +174,25 @@ class HealthcareRecord(Base):
                 pass # Keep version_display as None
         return f"<HealthcareRecord(record_id={self.record_id}, patient_user_id={self.patient_user_id}, version={version_display})>"
 
+engine = None # Initialize engine as None at module level
+
 def initialize_database():
     """
     Initializes the database connection and creates tables if they don't exist.
-    Only call once at start.
-
-    This function defines the database connection URL, creates the SQLAlchemy
-    engine, and then creates all tables defined in the Base metadata.
+    This function is idempotent for engine creation and table creation.
 
     Returns:
         sqlalchemy.engine.Engine: The created SQLAlchemy engine instance as a global variable.
     """
-    DATABASE_URL = environ['DATABASE_URL']
-    configure_mappers() # Ensure all mappers are configured before creating tables
-    global engine 
-    engine = create_engine(DATABASE_URL)
-    Base.metadata.create_all(engine)
-
+    global engine
+    if engine is None:
+        DATABASE_URL = environ['DATABASE_URL']
+        configure_mappers() # Ensure all mappers are configured before creating tables
+        current_engine = create_engine(DATABASE_URL)
+        Base.metadata.create_all(current_engine)
+        engine = current_engine
+        print("Database engine initialized and tables created.")
     return engine
-
-engine = initialize_database()
-
-
 
 
 def _get_requestee_user_and_role(session, requestee_username: str):
