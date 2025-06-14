@@ -12,7 +12,7 @@ import boa
 # Get the latest counter of the Counter contract
 boa.set_network_env("http://127.0.0.1:8545")
 boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
-contract_logger = boa.load_partial("src/Logger.vy").at("0xb99df60f7b61F8643eE8B465869d43196C318AaA")
+contract_logger = boa.load_partial("src/Logger.vy").at("0x7F990A920122e0E251b37Bf44D2FF5Ea5EecA638")
 
 
 _logger = Logger(contract_logger)
@@ -24,16 +24,8 @@ def json_serial(obj):
     if isinstance(obj, uuid.UUID):
         return str(obj)
 
-def logged():
-
+def logged(logger=_logger):
     def _inner_logged(func):
-        boa.set_network_env("http://127.0.0.1:8545")
-
-        boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
-        
-        contract_logger = boa.load_partial("src/Logger.vy").at("0x4f01BDfD70E72C3a15F60E9175182801EEf1a8e1")
-
-        logger = Logger(contract_logger)
         @wraps(func)
         def with_logging(*args, **kwargs):
             # Filter out 'engine' and 'role_right_checker' from kwargs

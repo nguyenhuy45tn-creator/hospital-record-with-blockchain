@@ -48,7 +48,7 @@ class Role(Base):
     users = relationship("User", back_populates="role") # A role can have multiple users
 
     def __repr__(self):
-        return f"<Role(role_name='{self.role_name}')>"
+        return f"{self.role_name}"
     
     
 class Login(Base):
@@ -62,7 +62,7 @@ class Login(Base):
     user = relationship("User", back_populates="login_details", uselist=False, cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Login(user_name='{self.user_name}')>"
+        return f"{self.user_name}"
 
 class User(Base):
     __versioned__ = {}
@@ -286,7 +286,12 @@ def get_all_users(requestee_username: str):
         query =  select(User)
         output = session.execute(query).scalars().all()
     return output
-        
+
+def get_all_roles(): #no validate, not public endpoint
+    with Session(engine) as session:
+        query = select(Role)
+        output = session.execute(query).scalars().all()
+    return output
 
 
 def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
@@ -352,6 +357,8 @@ def add_user(requestee_username: str, full_name: str, address: str, hospital_des
     """
     with Session(engine) as session:
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+
+        role_right_checker = create_role_right_checker()
         _check_access(role_right_checker, requestee_role_name, WRITE_PATIENT_BASIC_DATA, "add a new user")
 
         # Generate a random username and password

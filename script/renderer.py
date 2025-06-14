@@ -1,6 +1,8 @@
 import pandas as pd
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from flask import url_for
+from flask import redirect
+from wtforms import Form, StringField, PasswordField, SelectField, validators
 
 from script.db_connection import get_all_users
 from script.db_connection import get_single_user
@@ -8,7 +10,9 @@ from script.db_connection import update_patient_basic_data
 from script.db_connection import get_system_wide_id
 from script.db_connection import check_search_access
 from script.db_connection import search_users
-from flask import redirect, url_for
+from script.db_connection import add_user
+from script.db_connection import get_all_roles
+
 from script.contract_logger import logged
 
 from script import roles
@@ -127,6 +131,31 @@ def render_test_template():
     template = env.get_template("index.html")
     return template.render(
                            url_for=url_for)
+
+class CreateUserForm(Form):
+    full_name = StringField(label="Full Name", 
+                            validators=[
+                                validators.InputRequired(), 
+                                validators.Regexp(regex="^[A-Za-z0-9_. ]+$")
+                            ])
+    address = StringField(label="Address", 
+                            validators=[
+                                validators.InputRequired(), 
+                                validators.Regexp(regex="^[A-Za-z0-9_. ]+$")
+                            ])
+    hospital_designation = StringField(label="Designated hospital", 
+                                validators=[
+                                    validators.InputRequired(), 
+                                    validators.Regexp(regex="^[A-Za-z0-9_. ]+$")
+                                ],
+                                default="This hosital")
+    role_for_new_user = SelectField(label="Roles",
+                                    choices=get_all_roles())
+    
+def render_create_user_view():
+    form = CreateUserForm()
+    template = env.get_template("create_user.html")
+    return template.render(form=form)
 
 @logged()
 def render_user_information(requestee_username: str):

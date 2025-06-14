@@ -1,0 +1,7 @@
+{% extends 'admin/model/edit.html' %}
+<form method="POST" action="admin/user/create">
+    <div>{{ form.full_name.label }}: {{ form.full_name(class="form-control") }}</div>
+    <div>{{ form.address.label }}: {{ form.address(class="form-control") }}</div>
+    <div>{{ form.hospital_designation.label }}: {{ form.hospital_designation(class="form-control") }}</div>
+    <div>{{ form.role_for_new_user.label }}: {{ form.role_for_new_user(class="form-control") }}</div>
+</form>

@@ -22,6 +22,3 @@ user_right_checker.add_role_w_right(PATIENT, READ_OWN_PATIENT_BASIC_DATA)
 user_right_checker.add_role_w_right(PATIENT, READ_OWN_HEALTHCARE_RECORD_RIGHT)
 user_right_checker.modify_role_right(PATIENT, READ_PATIENT_BASIC_DATA, False)
 print(user_right_checker.check_right(PATIENT, READ_PATIENT_BASIC_DATA))
-
-
-

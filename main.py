@@ -1,15 +1,22 @@
-from flask import Flask, render_template_string, request, redirect, url_for, flash
+from flask import Flask, render_template_string, request, redirect, url_for, flash, render_template
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask_admin import Admin, helpers
 from flask import session
 from uuid import uuid4
 from pathlib import Path
 import os
 from jinja2 import Environment
-
+from flask_admin.contrib.sqla import ModelView
+from flask_admin import expose
+from sqlalchemy.orm import DeclarativeBase
+ 
+from script.renderer import CreateUserForm
 # db workflow
 from script.db_connection import initialize_database, check_password
 from script.db_connection import populate_example_data, Session
 from script.db_connection import Login as DBLogin
+from script.db_connection import HealthcareRecord, Role
+from script.db_connection import add_user
 import script.db_connection 
 
 #cusotm import
@@ -21,15 +28,48 @@ from script.renderer import render_test_template
 from script.renderer import render_user_information
 from script.renderer import render_search_page
 from script.renderer import render_search_result
+from script.renderer import render_create_user_view
 
 #logger
 from script.contract_logger import logged
 
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="script/templates")
 app.secret_key = "super secret string"
+app.config['SQLALCHEMY_DATABASE_URI']="postgresql://postgres:postgres@localhost:5432/sampledb"
+app.config["root_path"]=os.getcwd()
 cwd = Path(os.getcwd())
 app.static_folder = cwd/"script"/"static"
+admin=Admin(app, name='microblog')
+ 
+class HealthRecordView(ModelView):
+    can_delete = False
+    can_edit = False
+
+class LoginView(ModelView):
+    pass  
+
+class UserView(ModelView):
+    @expose('/create/', methods=('GET', 'POST'))
+    @login_required
+    def create_view(self):
+        if request.method == "GET":
+            return self.render("create_user.html", form = CreateUserForm(), return_url = helpers.get_redirect_target() or self.get_url(".index_view"))
+        if request.method == "POST":
+            form = CreateUserForm(request.form)
+            if form.validate():
+                add_user(requestee_username=current_user.id,
+                         full_name=form.full_name.data,
+                         address=form.address.data,
+                         hospital_designation=form.hospital_designation.data,
+                         role_for_new_user=form.role_for_new_user.data)
+                return redirect("/admin/user")
+
+
+    
+admin.add_view(UserView(script.db_connection.User, Session(script.db_connection.engine)))
+admin.add_view(ModelView(Role, Session(script.db_connection.engine)))
+admin.add_view(HealthRecordView(HealthcareRecord, Session(script.db_connection.engine)))
 
 if not app.has_static_folder:
     raise ImportError("No static folder found")
