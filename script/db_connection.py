@@ -29,6 +29,8 @@ from script.contract import create_role_right_checker
 
 from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA,READ_OWN_HEALTHCARE_RECORD_RIGHT, ADD_USER_ROLE, CHANGE_OWN_PASSWORD_RIGHT, ADMIN_CHANGE_USER_PASSWORD_RIGHT
 
+from os import environ
+
 # Global variables for engine and role_right_checker
 
 
@@ -183,7 +185,7 @@ def initialize_database():
     Returns:
         sqlalchemy.engine.Engine: The created SQLAlchemy engine instance as a global variable.
     """
-    DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/sampledb"
+    DATABASE_URL = environ['DATABASE_URL']
     configure_mappers() # Ensure all mappers are configured before creating tables
     global engine 
     engine = create_engine(DATABASE_URL)

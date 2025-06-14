@@ -169,7 +169,9 @@ def moccasin_main():
 
     app.run(debug=True, 
             threaded=False, 
-            processes = 4
+            processes = 4,
+            host='0.0.0.0',
+            port=5000
     )
 
 
