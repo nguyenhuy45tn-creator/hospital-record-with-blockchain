@@ -240,6 +240,8 @@ def get_single_user(requestee_username: str, user_system_wide_identifier:uuid.UU
         sqlalchemy.orm.exc.NoResultFound: If no user with the given identifier is found.
         sqlalchemy.orm.exc.MultipleResultsFound: If multiple users somehow have the same identifier (shouldn't happen due to unique constraint).
     """
+    print("[241] requestee",requestee_username)
+    print("[241] user_system_wide_identifier",user_system_wide_identifier)
     with Session(engine) as session:
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
 
@@ -249,9 +251,13 @@ def get_single_user(requestee_username: str, user_system_wide_identifier:uuid.UU
             raise ValueError(f"User with SWID '{user_system_wide_identifier}' not found.")
 
         role_right_checker = create_role_right_checker()
-        if requestee_user.system_wide_identifier == user_system_wide_identifier:
+        print(requestee_user.system_wide_identifier)
+        
+        if requestee_user.system_wide_identifier == target_user_for_swid_check.system_wide_identifier:
+            print("[251] triggered")
             _check_access(role_right_checker, requestee_role_name, READ_OWN_PATIENT_BASIC_DATA, f"view own profile (SWID: {user_system_wide_identifier})")
         else:
+            print("[254] triggered")
             _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, f"view profile for user SWID: {user_system_wide_identifier}")
 
         query =  select(User).where(User.system_wide_identifier == user_system_wide_identifier)
@@ -630,11 +636,11 @@ def search_users(requestee_username, search_phrase:str):
         #     text(query), 
         #     {"search_phrase": search_phrase}).fetchall()
 
-    results = []
-    for row in result:
-        for user in row.tuple():
-            results.append(user.to_dict())
-    return results
+    # results = []
+    # for row in result:
+    #     for user in row.tuple():
+    #         results.append(user.to_dict())
+    return result # send the result directly
 
 
 
