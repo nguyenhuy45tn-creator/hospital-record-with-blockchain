@@ -46,9 +46,6 @@ class HealthRecordView(ModelView):
     can_delete = False
     can_edit = False
 
-class LoginView(ModelView):
-    pass  
-
 class UserView(ModelView):
     @expose('/create/', methods=('GET', 'POST'))
     @login_required
