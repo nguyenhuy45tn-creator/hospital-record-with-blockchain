@@ -7,9 +7,10 @@ from pathlib import Path
 import os
 from jinja2 import Environment
 from flask_admin.contrib.sqla import ModelView
-from flask_admin import expose
+from flask_admin import expose, BaseView
 from sqlalchemy.orm import DeclarativeBase
- 
+import pandas as pd
+
 from script.renderer import CreateUserForm
 # db workflow
 from script.db_connection import initialize_database, check_password
@@ -30,9 +31,8 @@ from script.renderer import render_search_page
 from script.renderer import render_search_result
 from script.renderer import render_create_user_view
 
-#logger
-from script.contract_logger import logged
 
+from script.contract_logger import _logger
 
 app = Flask(__name__, template_folder="script/templates")
 app.secret_key = "super secret string"
@@ -62,11 +62,20 @@ class UserView(ModelView):
                          role_for_new_user=form.role_for_new_user.data)
                 return redirect("/admin/user")
 
-
+class LogView(BaseView):
+    @expose('/', methods=('GET',))
+    # @login_required
+    def create_view(self):
+        if request.method == "GET":
+            logs = pd.DataFrame(_logger.get_newest(20))
+            s = logs.style.set_table_attributes('class="table .table-hover table-sm"')
+            return self.render("admin_logview.html",
+                               html_table=s.to_html())
     
 admin.add_view(UserView(script.db_connection.User, Session(script.db_connection.engine)))
 admin.add_view(ModelView(Role, Session(script.db_connection.engine)))
 admin.add_view(HealthRecordView(HealthcareRecord, Session(script.db_connection.engine)))
+admin.add_view(LogView(name='LogViews', endpoint='LogViews'))
 
 if not app.has_static_folder:
     raise ImportError("No static folder found")

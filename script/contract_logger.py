@@ -12,7 +12,7 @@ import boa
 # Get the latest counter of the Counter contract
 boa.set_network_env("http://127.0.0.1:8545")
 boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
-contract_logger = boa.load_partial("src/Logger.vy").at("0x7F990A920122e0E251b37Bf44D2FF5Ea5EecA638")
+contract_logger = boa.load_partial("src/Logger.vy").at("0x4f01BDfD70E72C3a15F60E9175182801EEf1a8e1")
 
 
 _logger = Logger(contract_logger)
