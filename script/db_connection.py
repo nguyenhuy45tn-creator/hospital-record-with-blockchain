@@ -186,7 +186,7 @@ def initialize_database():
     """
     global engine
     if engine is None:
-        DATABASE_URL = environ['DATABASE_URL']
+        DATABASE_URL = environ.get('DATABASE_URL', "postgresql://postgres:postgres@localhost:5432/sampledb")
         configure_mappers() # Ensure all mappers are configured before creating tables
         current_engine = create_engine(DATABASE_URL)
         Base.metadata.create_all(current_engine)
