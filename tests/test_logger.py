@@ -50,9 +50,9 @@ def test_logged_complex_input(logger):
     [some_func(num, exponent=exp) for num, exp in zip(numbers, exponents)]
 
     assert logger.get_length() == len(numbers), logger.get_length()
-    logs: list[str] = logger.get_newest()
+    logs: list[str] = Logger(logger).get_newest(10)
     for enum, log in enumerate(logs):
-        obj = json.loads(log)
+        obj = log
         assert obj["func"] == "some_func", log
         assert obj["args"] == [[enum,],], log
         assert obj["kwargs"] == {"exponent": {"arg": enum}}, log
