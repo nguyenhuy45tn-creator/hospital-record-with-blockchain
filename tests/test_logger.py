@@ -1,37 +1,39 @@
 import boa
 from pytest import fixture
-from script.interface import Logger as interface_Logger
+from script.interface import Logger
 from script.interface import Log
 from script.contract_logger import logged
 import json
 
 @fixture
 def logger():
+    boa.reset_env()
     contract_logger = boa.load("src/Logger.vy")
     return contract_logger
 
-def test_logged_simple_arg():
+def test_logged_simple_arg(logger):
     """
         test case where the arguments are of simple type
     """
     numbers = [0, 1 ,2, 3]
     exponents = [0, 1, 2, 3]
-    @logged(contract_logger)
+    @logged(logger)
     def some_func(num: int, exponent: dict):
         return num**exponent
     
     [some_func(num, exponent=exp) for num, exp in zip(numbers, exponents)]
 
     assert logger.get_length() == len(numbers), logger.get_length()
-    logs: list[str] = contract_logger.get_newest()
+    logs: list[dict] = Logger(logger).get_newest(1)
+    logs.reverse()
     for enum, log in enumerate(logs):
-        obj = json.loads(log)
+        obj = log
         assert obj["func"] == "some_func", log
-        assert obj["args"] == [enum], log
-        assert obj["kwargs"] == {"exponent": enum}, log
+        assert obj["args"] == [numbers[-(enum+1)]], log
+        assert obj["kwargs"] == {"exponent": exponents[-(enum+1)]}, log
         assert obj["result"] == "Success", logs
 
-def test_logged_complex_input():
+def test_logged_complex_input(logger):
     """
         test case where the arguments are of complex type
     """
@@ -41,14 +43,14 @@ def test_logged_complex_input():
                 {"arg": 1}, 
                 {"arg": 2}, 
                 {"arg": 3}]
-    @logged(contract_logger)
+    @logged(logger)
     def some_func(num: int, exponent: dict):
         return num[0]**exponent["arg"]
     
     [some_func(num, exponent=exp) for num, exp in zip(numbers, exponents)]
 
     assert logger.get_length() == len(numbers), logger.get_length()
-    logs: list[str] = contract_logger.get_newest()
+    logs: list[str] = logger.get_newest()
     for enum, log in enumerate(logs):
         obj = json.loads(log)
         assert obj["func"] == "some_func", log
@@ -56,13 +58,13 @@ def test_logged_complex_input():
         assert obj["kwargs"] == {"exponent": {"arg": enum}}, log
         assert obj["result"] == "Success", logs
 
-def test_failure():
+def test_failure(logger):
     """
         test in case an exception is raised in the inner function
     """
     test_input = {"key":"23"}
 
-    @logged(contract_logger)
+    @logged(logger)
     def some_func(test_input: dict):
         result = test_input["non_exist_key"]
     
@@ -71,8 +73,8 @@ def test_failure():
     except Exception as e:
         print(e)
 
-    logs: list[str] = contract_logger.get_newest()
-    newest_res = json.loads(logs[-1])
+    logs: list[str] = Logger(logger).get_newest(1)
+    newest_res = logs[0]
     assert newest_res["result"] == "Error", logs[-1]
     assert newest_res["output"] == "KeyError('non_exist_key')", logs[-1]
 
