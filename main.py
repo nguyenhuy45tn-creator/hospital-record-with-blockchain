@@ -95,10 +95,12 @@ class User(UserMixin):
 def load_user(user_id):
     """Loads a user from the database given their ID (username in this case)."""
     # Ensure the database engine is initialized.
-    # This relies on initialize_database() having been called once at startup.
+    # This relies on initialize_database() having been called at startup (e.g., in moccasin_main).
     if not script.db_connection.engine:
-        print("Warning: db_connection.engine not initialized in load_user. This might indicate an issue.")
-        initialize_database()
+        print("CRITICAL WARNING: db_connection.engine not initialized in load_user. Attempting to initialize now.")
+        script.db_connection.initialize_database() # Explicitly call the function from db_connection
+        if not script.db_connection.engine:
+            raise RuntimeError("Failed to initialize database engine even after explicit call in load_user.")
 
     with Session(script.db_connection.engine) as db_session:
         db_login_entry = db_session.query(DBLogin).filter_by(user_name=user_id).one_or_none()
@@ -219,7 +221,9 @@ def moccasin_main():
 
     app.run(debug=True, 
             threaded=False, 
-            processes = 4
+            processes = 4,
+            host='0.0.0.0',
+            port=5000
     )
 
 

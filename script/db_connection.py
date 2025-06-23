@@ -29,6 +29,8 @@ from script.contract import create_role_right_checker
 
 from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA,READ_OWN_HEALTHCARE_RECORD_RIGHT, ADD_USER_ROLE, CHANGE_OWN_PASSWORD_RIGHT, ADMIN_CHANGE_USER_PASSWORD_RIGHT
 
+from os import environ
+
 # Global variables for engine and role_right_checker
 
 
@@ -172,28 +174,25 @@ class HealthcareRecord(Base):
                 pass # Keep version_display as None
         return f"<HealthcareRecord(record_id={self.record_id}, patient_user_id={self.patient_user_id}, version={version_display})>"
 
+engine = None # Initialize engine as None at module level
+
 def initialize_database():
     """
     Initializes the database connection and creates tables if they don't exist.
-    Only call once at start.
-
-    This function defines the database connection URL, creates the SQLAlchemy
-    engine, and then creates all tables defined in the Base metadata.
+    This function is idempotent for engine creation and table creation.
 
     Returns:
         sqlalchemy.engine.Engine: The created SQLAlchemy engine instance as a global variable.
     """
-    DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/sampledb"
-    configure_mappers() # Ensure all mappers are configured before creating tables
-    global engine 
-    engine = create_engine(DATABASE_URL)
-    Base.metadata.create_all(engine)
-
+    global engine
+    if engine is None:
+        DATABASE_URL = environ['DATABASE_URL']
+        configure_mappers() # Ensure all mappers are configured before creating tables
+        current_engine = create_engine(DATABASE_URL)
+        Base.metadata.create_all(current_engine)
+        engine = current_engine
+        print("Database engine initialized and tables created.")
     return engine
-
-engine = initialize_database()
-
-
 
 
 def _get_requestee_user_and_role(session, requestee_username: str):
