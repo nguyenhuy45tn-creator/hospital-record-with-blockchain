@@ -1,6 +1,6 @@
 import pandas as pd
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from flask import url_for
+from flask import url_for, jsonify, Request
 from flask import redirect
 from wtforms import Form, StringField, PasswordField, SelectField, validators
 
@@ -31,6 +31,7 @@ env = Environment(
 def dummy(*args, **kwargs):
     #a dummy function that do nothing so it doesn't messup url template
     pass
+
 
 def render_all_user_information(requestee_username, url_for = None) -> str:
     # """Renders a Jinja2 template with user information.
@@ -132,6 +133,18 @@ def render_test_template():
     return template.render(
                            url_for=url_for)
 
+@logged()
+def render_user_table(requestee_username):
+    content = get_all_users(requestee_username=requestee_username)
+    table = pd.DataFrame(content).set_index("user_id")
+    content = table.style.set_table_attributes('class="table table-hover" hx-trigger="reload-user-table from:body" hx-get="/admin/user_table"').to_html()
+    return content
+
+@logged()
+def render_view_all_user(requestee_username):
+    template = env.get_template("admin_components/admin_user.html")
+    return template.render(url_for=url_for)
+
 class CreateUserForm(Form):
     full_name = StringField(label="Full Name", 
                             validators=[
@@ -149,12 +162,24 @@ class CreateUserForm(Form):
                                     validators.Regexp(regex="^[A-Za-z0-9_. ]+$")
                                 ],
                                 default="This hosital")
-    role_for_new_user = SelectField(label="Roles",
-                                    choices=get_all_roles())
-    
-def render_create_user_view():
+    role_for_new_user = SelectField(label="Roles", choices=get_all_roles())
+
+def render_added_user(requestee_username, request: Request):
+    form = CreateUserForm(request.form)
+    if request.method == 'POST' and form.validate():
+        username, password_plain = add_user(requestee_username=requestee_username,
+                                            full_name=form.full_name.data,
+                                            address=form.address.data,
+                                            hospital_designation=form.hospital_designation.data,
+                                            role_for_new_user=form.role_for_new_user.data)
+    template = env.get_template("admin_components/new_user_account.html")
+    return template.render(new_username = username, 
+                           new_password=password_plain,
+                           form=form)
+
+def render_add_user_form():
     form = CreateUserForm()
-    template = env.get_template("create_user.html")
+    template = env.get_template("admin_components/add_user_form.html")
     return template.render(form=form)
 
 @logged()

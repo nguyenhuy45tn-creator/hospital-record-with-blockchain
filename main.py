@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, redirect, url_for, flash, render_template
+from flask import Flask, render_template_string, request, redirect, url_for, flash, render_template, make_response
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_admin import Admin, helpers
 from flask import session
@@ -6,12 +6,9 @@ from uuid import uuid4
 from pathlib import Path
 import os
 from jinja2 import Environment
-from flask_admin.contrib.sqla import ModelView
-from flask_admin import expose, BaseView
 from sqlalchemy.orm import DeclarativeBase
 import pandas as pd
 
-from script.renderer import CreateUserForm
 # db workflow
 from script.db_connection import initialize_database, check_password
 from script.db_connection import populate_example_data, Session
@@ -21,7 +18,7 @@ from script.db_connection import add_user
 import script.db_connection 
 
 #cusotm import
-from script.renderer import render_all_user_information
+from script.renderer import render_add_user_form
 from script.renderer import render_view_user_information
 from script.renderer import render_edit_user_information
 from script.renderer import update_rendered_user_information
@@ -29,7 +26,10 @@ from script.renderer import render_test_template
 from script.renderer import render_user_information
 from script.renderer import render_search_page
 from script.renderer import render_search_result
-from script.renderer import render_create_user_view
+from script.renderer import render_added_user
+from script.renderer import render_view_all_user
+from script.renderer import render_user_table
+
 
 
 from script.contract_logger import _logger
@@ -40,45 +40,7 @@ app.config['SQLALCHEMY_DATABASE_URI']="postgresql://postgres:postgres@localhost:
 app.config["root_path"]=os.getcwd()
 cwd = Path(os.getcwd())
 app.static_folder = cwd/"script"/"static"
-admin=Admin(app, name='microblog')
- 
-class HealthRecordView(ModelView):
-    can_delete = False
-    can_edit = False
 
-class UserView(ModelView):
-    @expose('/create/', methods=('GET', 'POST'))
-    @login_required
-    def create_view(self):
-        if request.method == "GET":
-            return self.render("create_user.html", form = CreateUserForm(), return_url = helpers.get_redirect_target() or self.get_url(".index_view"))
-        if request.method == "POST":
-            form = CreateUserForm(request.form)
-            if form.validate():
-                add_user(requestee_username=current_user.id,
-                         full_name=form.full_name.data,
-                         address=form.address.data,
-                         hospital_designation=form.hospital_designation.data,
-                         role_for_new_user=form.role_for_new_user.data)
-                return redirect("/admin/user")
-
-class LogView(BaseView):
-    @expose('/', methods=('GET',))
-    # @login_required
-    def create_view(self):
-        if request.method == "GET":
-            logs = pd.DataFrame(_logger.get_newest(20))
-            s = logs.style.set_table_attributes('class="table .table-hover table-sm"')
-            return self.render("admin_logview.html",
-                               html_table=s.to_html())
-    
-admin.add_view(UserView(script.db_connection.User, Session(script.db_connection.engine)))
-admin.add_view(ModelView(Role, Session(script.db_connection.engine)))
-admin.add_view(HealthRecordView(HealthcareRecord, Session(script.db_connection.engine)))
-admin.add_view(LogView(name='LogViews', endpoint='LogViews'))
-
-if not app.has_static_folder:
-    raise ImportError("No static folder found")
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -152,6 +114,34 @@ def login():
     return render_template_string(login_template_html)
 
 
+@app.route("/admin")
+@login_required
+def load_admin_page():
+    return render_view_all_user(current_user.id)
+
+@app.route("/admin/user_table")
+@login_required
+def load_user_table():
+    return render_user_table(current_user.id)
+
+@app.route("/admin/add_user", methods = ["POST","GET"])
+@login_required
+def add_user():
+    if request.method == "GET":
+        return render_add_user_form()
+    if request.method == "POST":
+        try:
+
+            result = render_added_user(current_user.id, request=request)
+            response = make_response(result)
+            response.headers['HX-Trigger'] = 'reload-user-table'
+            return response
+        except Exception as e:
+            raise e
+
+
+
+
 @app.route('/user_information', methods=["GET"])
 @login_required 
 def get_all_user_information():
@@ -223,7 +213,7 @@ def moccasin_main():
             threaded=False, 
             processes = 4,
             host='0.0.0.0',
-            port=5001
+            port=2608
     )
 
 

@@ -1,7 +1,7 @@
 import uuid
 import string
 from datetime import datetime, timezone
-
+import pandas as pd
 from sqlalchemy import (
     create_engine,
     Column,
@@ -26,6 +26,7 @@ from random import choices
 from script.interface import RoleRightChecker 
 from script.roles import ADMIN
 from script.contract import create_role_right_checker
+
 
 from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA,READ_OWN_HEALTHCARE_RECORD_RIGHT, ADD_USER_ROLE, CHANGE_OWN_PASSWORD_RIGHT, ADMIN_CHANGE_USER_PASSWORD_RIGHT
 
@@ -174,7 +175,7 @@ class HealthcareRecord(Base):
                 pass # Keep version_display as None
         return f"<HealthcareRecord(record_id={self.record_id}, patient_user_id={self.patient_user_id}, version={version_display})>"
 
-engine = None # Initialize engine as None at module level
+
 
 def initialize_database():
     """
@@ -194,6 +195,8 @@ def initialize_database():
         print("Database engine initialized and tables created.")
     return engine
 
+DATABASE_URL = environ.get('DATABASE_URL', "postgresql://postgres:postgres@localhost:5432/sampledb")
+engine = create_engine(DATABASE_URL) # Initialize engine as None at module level
 
 def _get_requestee_user_and_role(session, requestee_username: str):
     """Helper to fetch the requestee user and their role name."""
@@ -283,8 +286,13 @@ def get_all_users(requestee_username: str):
         _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
 
         query =  select(User)
-        output = session.execute(query).scalars().all()
-    return output
+        representation = []
+        output = session.execute(query).fetchall()
+        for row in output:
+            for user in row:
+                print(user)
+                representation.append(user.to_dict())
+    return representation
 
 def get_all_roles(): #no validate, not public endpoint
     with Session(engine) as session:

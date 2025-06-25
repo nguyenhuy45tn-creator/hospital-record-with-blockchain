@@ -1,0 +1,69 @@
+<div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" id="user_form">
+        <div class="modal-header" >
+            <h5 class="modal-title">Add user</h5>
+        </div>
+        <form action="/admin/add_user" method="post" >
+            <div class="modal-body">
+                <div class="form-group">
+                    <div>
+                        {{ form.full_name.label }}: {{ form.full_name(class="form-control") }}
+                    </div>
+                    {% if form.full_name.errors %}
+                        <ul class="errors">
+                            {% for error in form.full_name.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                <div class="form-group">
+                    <div>
+                        {{ form.address.label }}: {{ form.address(class="form-control") }}
+                    </div>
+                    {% if form.address.errors %}
+                        <ul class="errors">
+                            {% for error in form.address.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                <div class="form-group">
+                    <div>
+                        {{ form.hospital_designation.label }}: {{ form.hospital_designation(class="form-control") }}
+                    </div>
+                    {% if form.hospital_designation.errors %}
+                        <ul class="errors">
+                            {% for error in form.hospital_designation.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                <div class="form-group">
+                    <div>
+                        {{ form.role_for_new_user.label }}: {{ form.role_for_new_user(class="form-control") }}
+                    </div>
+                    {% if form.role_for_new_user.errors %}
+                        <ul class="errors">
+                            {% for error in form.role_for_new_user.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" 
+                class="btn btn-secondary" 
+                hx-post="/admin/add_user"
+                hx-trigger="click"
+                hx-target="#user_form"
+                hx-swap="innerHTML">
+                    Submit
+                </button>
+            </div>          
+        </form>
+    </div>
+</div>
