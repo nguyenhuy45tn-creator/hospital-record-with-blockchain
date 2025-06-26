@@ -2,9 +2,9 @@
 
 {% block User %}
 
-<div class="container" style="width: 110%;" id="users">
-    <div class="row-sm-2">
-        <div class="col-sm-6">
+<div class="container" style="width: 100%;" id="users">
+    <div class="row">
+        <div class="col-sm-9">
             <h2> 
                 User administration
             </h2>
@@ -12,15 +12,15 @@
         <div class="col-sm-3">
             <button
                 hx-get="/admin/add_user"
-                hx-target="#modals-here"
+                hx-target="#add-user-form"
                 hx-trigger="click"
                 data-bs-toggle="modal"
-                data-bs-target="#modals-here"
-                class="btn primary">
-                Add user
+                data-bs-target="#add-user-form"
+                class="btn primary btn-light">
+                <u><h3>Add user</h3></u>
             </button>
 
-            <div id="modals-here"
+            <div id="add-user-form"
                 class="modal modal-blur fade"
                 style="display: none"
                 aria-hidden="false"

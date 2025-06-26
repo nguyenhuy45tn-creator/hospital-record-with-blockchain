@@ -11048,4 +11048,8 @@ section.resume-section .resume-section-content {
     transform: rotate(-360deg);
   }
 }
-    
+
+#download-btn{
+  --bs-btn-bg: #bb603c;
+  --bs-btn-border-color:  #bb603c;
+}
