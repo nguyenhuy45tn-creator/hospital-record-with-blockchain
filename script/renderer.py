@@ -160,16 +160,17 @@ class CreateUserForm(Form):
                                 default="This hosital")
     role_for_new_user = SelectField(label="Roles", choices=get_all_roles())
 
+@logged()
 def render_logs_table(requestee_username):
-    boa.set_network_env("http://127.0.0.1:8545")
     boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
-    contract_logger = boa.load_partial("src/Logger.vy").at("0x0C4340cD9aF4C01E65A1495408Acd02EF76D7637")
-    log_length = contract_logger.get_length() 
-    logs = []
-    for i in range(1, log_length):
-        logs.append(json.loads(contract_logger.log_db(i)))
-    table=pd.DataFrame(logs)
-    return table.to_html()
+    with boa.fork("http://127.0.0.1:8545", allow_dirty=True):
+        contract_logger = boa.load_partial("src/Logger.vy").at("0x0C4340cD9aF4C01E65A1495408Acd02EF76D7637")
+        log_length = contract_logger.get_length() 
+        logs = []
+        for i in range(1, log_length):
+            logs.append(json.loads(contract_logger.log_db(i)))
+    table=pd.DataFrame(logs).sort_values("ts")
+    return table.style.set_table_attributes('class="table table-hover" hx-trigger="every 3s" hx-get="/admin/logs"').to_html()
 
 def render_added_user(requestee_username, request: Request):
     form = CreateUserForm(request.form)

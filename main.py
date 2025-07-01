@@ -122,7 +122,10 @@ def load_admin_page():
 @app.route("/admin/user_table")
 @login_required
 def load_user_table():
-    return render_user_table(current_user.id)
+    try:
+        return render_user_table(current_user.id)
+    except Exception as e:
+        print(e)
 
 @app.route("/admin/add_user", methods = ["POST","GET"])
 @login_required
@@ -212,10 +215,9 @@ def moccasin_main():
     populate_example_data()
 
     app.run(debug=True, 
-            threaded=False, 
-            processes = 1,
+            threaded=True,
             host='0.0.0.0',
-            port=2610
+            port=8500
     )
 
 
