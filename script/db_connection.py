@@ -540,7 +540,7 @@ def add_role(requestee_username: str, role_name_to_add:str, description:str):
         session.add(new_role)
         session.commit()
     
-def change_password(requestee_username: str, target_username:str, new_password:str):
+def change_password(requestee_username: str, target_sys_id:str, new_password:str):
     """
     Changes the password for a given user.
     Access control is performed. Users can change their own password, or an admin
@@ -556,18 +556,22 @@ def change_password(requestee_username: str, target_username:str, new_password:s
         PermissionError: If the requestee does not have permission.
         ValueError: If the username does not exist.
     """
+    role_right_checker = create_role_right_checker()
     with Session(engine) as session:
+
         _requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
 
-        if requestee_username == target_username:
+        target_user_for_swid_check = session.query(User).filter(User.system_wide_identifier == target_sys_id).one_or_none()
+
+        if _requestee_user.system_wide_identifier == target_user_for_swid_check.system_wide_identifier:
             _check_access(role_right_checker, requestee_role_name, CHANGE_OWN_PASSWORD_RIGHT, "change own password")
         else:
-            _check_access(role_right_checker, requestee_role_name, ADMIN_CHANGE_USER_PASSWORD_RIGHT, f"change password for user '{target_username}'")
+            _check_access(role_right_checker, requestee_role_name, ADMIN_CHANGE_USER_PASSWORD_RIGHT, f"change password for user '{target_sys_id}'")
 
-        login_entry = session.query(Login).filter_by(user_name=target_username).first()
+        login_entry = session.query(Login).filter_by(user_name=target_user_for_swid_check.user_name).first()
 
         if not login_entry:
-            raise ValueError(f"User '{target_username}' not found.")
+            raise ValueError(f"User '{target_user_for_swid_check.user_name}' not found.")
 
         # Generate new salt and hash the new password
         new_salt = gensalt()
@@ -578,7 +582,7 @@ def change_password(requestee_username: str, target_username:str, new_password:s
         login_entry.hashed_password = new_hashed_password
 
         session.commit()
-        print(f"Password for user '{target_username}' changed successfully by '{requestee_username}'.")
+        print(f"Password for user '{target_sys_id}' changed successfully by '{requestee_username}'.")
 
 
 def check_password(username: str, password_to_check: str) -> bool:

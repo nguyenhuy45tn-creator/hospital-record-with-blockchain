@@ -15,6 +15,7 @@ from script.db_connection import check_search_access
 from script.db_connection import search_users
 from script.db_connection import add_user
 from script.db_connection import get_all_roles
+from script.db_connection import change_password
 
 from script.contract_logger import logged, _logger, contract_logger
 
@@ -78,6 +79,24 @@ def render_edit_user_information(requestee_id, system_wide_id) -> str:
                            address=str(user.address),
                            url_for=url_for)
 
+def render_change_password_form(systemwide_id):
+    template = env.get_template("user_information/change_password_form.html")
+    return template.render(sys_wide_id=systemwide_id)
+
+def render_change_password_result(requestee_username,systemwide_id, new_password):
+    result = "Successfully changed the password"
+    try:
+        change_password(
+            requestee_username=requestee_username, 
+            target_sys_id=systemwide_id, 
+            new_password=new_password)
+    except Exception as e:
+        result = "Fail changing the password"
+        print(repr(e))
+    template = env.get_template("user_information/change_password_status.html")
+    return template.render(status=result)
+
+    
 @logged()
 def render_search_page(requestee_id) -> str:
     try:

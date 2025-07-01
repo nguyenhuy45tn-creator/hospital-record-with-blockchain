@@ -149,13 +149,15 @@
                     <div class="col-sm-3" >
                         <button 
                             class="btn btn-outline-dark"
-                            hx-get="/edit_user_information/basic/{{sys_wide_id}}" 
-                            hx-target="#Basic-Information"
+                            hx-get="/change_password/{{sys_wide_id}}" 
+                            hx-target="#change-password-form"
                             hx-swap="outerHTML"> 
                                 <label for="edit-basic-icon">
                                     <strong><u>Change password</u></strong>
                                 </label>
                         </button>
+                    </div>
+                    <div id="change-password-form">
                     </div>
                 </div>
             </div>

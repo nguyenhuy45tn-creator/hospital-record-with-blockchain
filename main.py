@@ -30,7 +30,8 @@ from script.renderer import render_added_user
 from script.renderer import render_view_all_user
 from script.renderer import render_user_table
 from script.renderer import render_logs_table
-
+from script.renderer import render_change_password_form
+from script.renderer import render_change_password_result
 
 from script.contract_logger import _logger
 
@@ -204,11 +205,19 @@ def search():
         else:
             return "No search phrase found"
 
-@app.route("/test_endpoint")
-def test():
+@app.route("/change_password/<systemwide_id>", methods=["GET","POST"])
+def change_password(systemwide_id):
 
-
-    return render_test_template()
+    if request.method == "GET":
+        return render_change_password_form(systemwide_id)
+    if request.method == "POST":
+        new_password = request.form.get("new_password")
+        print("Post request -----------", request.form)
+        if new_password:
+            return render_change_password_result(
+                        requestee_username=current_user.id,
+                        systemwide_id=systemwide_id,
+                        new_password=new_password)
 
 def moccasin_main():
     initialize_database()
