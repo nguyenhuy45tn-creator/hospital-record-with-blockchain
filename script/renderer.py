@@ -1,8 +1,11 @@
 import pandas as pd
+from eth_account import Account
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from flask import url_for, jsonify, Request
 from flask import redirect
 from wtforms import Form, StringField, PasswordField, SelectField, validators
+import json
+import boa
 
 from script.db_connection import get_all_users
 from script.db_connection import get_single_user
@@ -13,7 +16,7 @@ from script.db_connection import search_users
 from script.db_connection import add_user
 from script.db_connection import get_all_roles
 
-from script.contract_logger import logged
+from script.contract_logger import logged, _logger, contract_logger
 
 from script import roles
 
@@ -32,34 +35,18 @@ def dummy(*args, **kwargs):
     #a dummy function that do nothing so it doesn't messup url template
     pass
 
-
-def render_all_user_information(requestee_username, url_for = None) -> str:
-    # """Renders a Jinja2 template with user information.
-     
-    # It then renders the 'user_information_table.html.jinja' 
-    # template, passing the user information DataFrame 
-    # and the `url_for` function to it.
-
-    # Args:
-    #     user_id: A list of user IDs to filter the information.
-    #              Currently, this parameter is not used and all
-    #              user information is fetched. Defaults to None.
-
-    # Returns:
-    #     A string containing the rendered HTML content.
-    # """
-
-    # # fetch all user
+# @logged()
+# def render_all_user_information(requestee_username, url_for = None) -> str:
     
-    users = get_all_users(requestee_username=requestee_username)
-    users = pd.DataFrame([user.to_dict() for user in users])
-    template = env.get_template('user_information/view_all_user_information_table.html')
-    try:
-        return template.render(df=users,
-                           url_for=url_for)
-    except Exception as e:
-        return template.render(df=users,
-                               url_for=dummy)
+#     users = get_all_users(requestee_username=requestee_username)
+#     users = pd.DataFrame([user.to_dict() for user in users])
+#     template = env.get_template('user_information/view_all_user_information_table.html')
+#     try:
+#         return template.render(df=users,
+#                            url_for=url_for)
+#     except Exception as e:
+#         return template.render(df=users,
+#                                url_for=dummy)
 
 
 @logged()
@@ -135,10 +122,19 @@ def render_test_template():
 
 @logged()
 def render_user_table(requestee_username):
-    content = get_all_users(requestee_username=requestee_username)
-    table = pd.DataFrame(content).set_index("user_id")
-    content = table.style.set_table_attributes('class="table table-hover" hx-trigger="reload-user-table from:body" hx-get="/admin/user_table"').to_html()
-    return content
+    def get_edit_link(row: pd.DataFrame):
+        template = env.get_template("admin_components/edit_cell_user_table.html")
+        return template.render(sys_id=row["system_wide_identifier"])
+    
+    try:
+        content = get_all_users(requestee_username=requestee_username)
+        table = pd.DataFrame(content).set_index("user_id")
+        table[" "] = table.apply(get_edit_link, axis=1)
+        content = table.style.set_table_attributes('class="table table-hover" hx-trigger="reload-user-table from:body" hx-get="/admin/user_table"').to_html()
+        return content
+    except Exception as e:
+        print(repr(e))
+    
 
 @logged()
 def render_view_all_user(requestee_username):
@@ -163,6 +159,17 @@ class CreateUserForm(Form):
                                 ],
                                 default="This hosital")
     role_for_new_user = SelectField(label="Roles", choices=get_all_roles())
+
+def render_logs_table(requestee_username):
+    boa.set_network_env("http://127.0.0.1:8545")
+    boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
+    contract_logger = boa.load_partial("src/Logger.vy").at("0x0C4340cD9aF4C01E65A1495408Acd02EF76D7637")
+    log_length = contract_logger.get_length() 
+    logs = []
+    for i in range(1, log_length):
+        logs.append(json.loads(contract_logger.log_db(i)))
+    table=pd.DataFrame(logs)
+    return table.to_html()
 
 def render_added_user(requestee_username, request: Request):
     form = CreateUserForm(request.form)

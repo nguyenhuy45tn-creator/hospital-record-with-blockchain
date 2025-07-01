@@ -26,7 +26,7 @@ from random import choices
 from script.interface import RoleRightChecker 
 from script.roles import ADMIN
 from script.contract import create_role_right_checker
-
+from script.contract_logger import logged
 
 from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA,READ_OWN_HEALTHCARE_RECORD_RIGHT, ADD_USER_ROLE, CHANGE_OWN_PASSWORD_RIGHT, ADMIN_CHANGE_USER_PASSWORD_RIGHT
 
@@ -290,7 +290,7 @@ def get_all_users(requestee_username: str):
         output = session.execute(query).fetchall()
         for row in output:
             for user in row:
-                print(user)
+                # print(user)
                 representation.append(user.to_dict())
     return representation
 
@@ -340,7 +340,7 @@ def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
         records = session.execute(query).scalars().all()
     return records
 
-
+@logged()
 def add_user(requestee_username: str, full_name: str, address: str, hospital_designation: str, role_for_new_user: str):
     """
     Adds a new user and their login credentials to the database.
@@ -407,7 +407,7 @@ def add_user(requestee_username: str, full_name: str, address: str, hospital_des
     return username, password_plain
 
         
-
+@logged()
 def add_health_record(requestee_username: str, patient_user_id:int, record_data:dict):
     """
     Adds a new healthcare record for a specific user.
@@ -473,6 +473,7 @@ def update_health_record(requestee_username: str, record_id:int, record_data:dic
         else:
             raise ValueError(f"Record with ID '{record_id}' not found.")
 
+@logged()
 def update_patient_basic_data(requestee_username: str, sys_wide_id:int, record_data:dict):
     """
     Updates an existing healthcare record.
@@ -509,7 +510,8 @@ def update_patient_basic_data(requestee_username: str, sys_wide_id:int, record_d
             return
         else:
             raise ValueError(f"Cannot find user")
-        
+
+@logged()
 def add_role(requestee_username: str, role_name_to_add:str, description:str):
     """
     Adds a new role to the database.

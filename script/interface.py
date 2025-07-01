@@ -2,6 +2,7 @@
 # from boa.contracts.abi.abi_contract import ABIContract
 from datetime import datetime
 import json
+import boa
 class uint128(int):
     # this is only for better notation
     pass 
@@ -160,7 +161,12 @@ class Logger:
     def get_newest(self, num: int):
         length:int = self.contract_logger.get_length()
         bound = max(length-num, 0)
-        return [json.loads(self.contract_logger.log_db(i)) for i in range(bound, length)]
+        res = []
+        for i in range(bound, length):
+            res.append(json.loads(self.contract_logger.get_value(i)))
+
+                
+        return res
 
 
 class Log:

@@ -29,7 +29,7 @@ from script.renderer import render_search_result
 from script.renderer import render_added_user
 from script.renderer import render_view_all_user
 from script.renderer import render_user_table
-
+from script.renderer import render_logs_table
 
 
 from script.contract_logger import _logger
@@ -139,8 +139,10 @@ def add_user():
         except Exception as e:
             raise e
 
-
-
+@app.route("/admin/logs")
+@login_required
+def load_logs_table():
+    return render_logs_table(current_user.id)
 
 @app.route('/user_information', methods=["GET"])
 @login_required 
@@ -211,9 +213,9 @@ def moccasin_main():
 
     app.run(debug=True, 
             threaded=False, 
-            processes = 4,
+            processes = 1,
             host='0.0.0.0',
-            port=2608
+            port=2610
     )
 
 
