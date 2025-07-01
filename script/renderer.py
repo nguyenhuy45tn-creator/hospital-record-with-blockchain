@@ -10,7 +10,7 @@ import boa
 from script.db_connection import get_all_users
 from script.db_connection import get_single_user
 from script.db_connection import update_patient_basic_data
-from script.db_connection import get_system_wide_id
+from script.db_connection import get_system_wide_id_and_role
 from script.db_connection import check_search_access
 from script.db_connection import search_users
 from script.db_connection import add_user
@@ -83,6 +83,7 @@ def render_change_password_form(systemwide_id):
     template = env.get_template("user_information/change_password_form.html")
     return template.render(sys_wide_id=systemwide_id)
 
+@logged()
 def render_change_password_result(requestee_username,systemwide_id, new_password):
     result = "Successfully changed the password"
     try:
@@ -188,7 +189,7 @@ def render_logs_table(requestee_username):
         logs = []
         for i in range(1, log_length):
             logs.append(json.loads(contract_logger.log_db(i)))
-    table=pd.DataFrame(logs).sort_values("ts")
+    table=pd.DataFrame(logs).sort_values("ts", ascending=False)
     return table.style.set_table_attributes('class="table table-hover" hx-trigger="every 3s" hx-get="/admin/logs"').to_html()
 
 def render_added_user(requestee_username, request: Request):
@@ -212,7 +213,7 @@ def render_add_user_form():
 @logged()
 def render_user_information(requestee_username: str):
 
-    sys_id, role = get_system_wide_id(requestee_username=requestee_username)
+    sys_id, role = get_system_wide_id_and_role(requestee_username=requestee_username)
 
     if role == roles.PATIENT:
         return render_view_user_information(requestee_id=requestee_username,

@@ -20,6 +20,7 @@ boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c41
 user_right_checker = create_role_right_checker()
 user_right_checker.add_role_w_right(ADMIN, READ_PATIENT_BASIC_DATA)
 user_right_checker.add_role_w_right(ADMIN, READ_PATIENT_HEALTHCARE_RECORD_DATA)
+user_right_checker.add_role_w_right(ADMIN, WRITE_PATIENT_BASIC_DATA)
 user_right_checker.add_role_w_right(ADMIN, rights.CHANGE_OWN_PASSWORD_RIGHT)
 user_right_checker.add_role_w_right(ADMIN, rights.ADMIN_CHANGE_USER_PASSWORD_RIGHT)
 user_right_checker.add_role_w_right(DOCTOR, READ_PATIENT_BASIC_DATA)

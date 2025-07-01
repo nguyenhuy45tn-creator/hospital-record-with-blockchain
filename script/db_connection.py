@@ -661,8 +661,8 @@ def search_users(requestee_username, search_phrase:str):
     return result # send the result directly
 
 
-
-def get_system_wide_id(requestee_username: str) -> tuple[str, str]:
+@logged()
+def get_system_wide_id_and_role(requestee_username: str) -> tuple[str, str]:
     """
     Purposefully left no security check since the informaiton returned is 
     highly low impact. This is to classify user_information page.

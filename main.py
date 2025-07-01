@@ -9,12 +9,15 @@ from jinja2 import Environment
 from sqlalchemy.orm import DeclarativeBase
 import pandas as pd
 
+from script import roles
+
 # db workflow
 from script.db_connection import initialize_database, check_password
 from script.db_connection import populate_example_data, Session
 from script.db_connection import Login as DBLogin
 from script.db_connection import HealthcareRecord, Role
 from script.db_connection import add_user
+from script.db_connection import get_system_wide_id_and_role
 import script.db_connection 
 
 #cusotm import
@@ -114,15 +117,36 @@ def login():
 
     return render_template_string(login_template_html)
 
+@app.route("/permission_error")
+def permission_error():
+    return "You don't ahve enough permission to access this page"
 
 @app.route("/admin")
 @login_required
 def load_admin_page():
-    return render_view_all_user(current_user.id)
 
+    if not check_is_admin(current_user.id):
+        return redirect(url_for("permission_error"))
+    
+    return render_view_all_user(current_user.id)
+        
+
+def check_is_admin(username) -> bool:
+    try:
+        out = get_system_wide_id_and_role(current_user.id)
+        if out:
+            if out[1] == roles.ADMIN:
+                return True
+    except Exception as e:
+        print("Error while getting role:", repr(e))
+    return False
+    
 @app.route("/admin/user_table")
 @login_required
 def load_user_table():
+    if not check_is_admin(current_user.id):
+        return redirect(url_for("permission_error"))
+    
     try:
         return render_user_table(current_user.id)
     except Exception as e:
@@ -131,11 +155,13 @@ def load_user_table():
 @app.route("/admin/add_user", methods = ["POST","GET"])
 @login_required
 def add_user():
+    if not check_is_admin(current_user.id):
+        return redirect(url_for("permission_error"))
+
     if request.method == "GET":
         return render_add_user_form()
     if request.method == "POST":
         try:
-
             result = render_added_user(current_user.id, request=request)
             response = make_response(result)
             response.headers['HX-Trigger'] = 'reload-user-table'
@@ -146,6 +172,9 @@ def add_user():
 @app.route("/admin/logs")
 @login_required
 def load_logs_table():
+    if not check_is_admin(current_user.id):
+        return redirect(url_for("permission_error"))
+    
     return render_logs_table(current_user.id)
 
 @app.route('/user_information', methods=["GET"])
