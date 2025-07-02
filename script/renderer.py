@@ -1,16 +1,28 @@
 import pandas as pd
+from eth_account import Account
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from flask import url_for
+from flask import url_for, jsonify, Request
+from flask import redirect
+from wtforms import Form, StringField, PasswordField, SelectField, validators
+import json
+import boa
 
 from script.db_connection import get_all_users
 from script.db_connection import get_single_user
 from script.db_connection import update_patient_basic_data
-from script.db_connection import get_system_wide_id
+from script.db_connection import get_system_wide_id_and_role
 from script.db_connection import check_search_access
 from script.db_connection import search_users
-from flask import redirect, url_for
+from script.db_connection import add_user
+from script.db_connection import get_all_roles
+from script.db_connection import change_password
+
+from script.contract_logger import logged, _logger, contract_logger
 
 from script import roles
+
+#logger
+from script.contract_logger import logged
 
 env = Environment(
     loader=FileSystemLoader("script/templates/"),
@@ -24,41 +36,23 @@ def dummy(*args, **kwargs):
     #a dummy function that do nothing so it doesn't messup url template
     pass
 
-def render_all_user_information(requestee_username, url_for = None) -> str:
-    # """Renders a Jinja2 template with user information.
-     
-    # It then renders the 'user_information_table.html.jinja' 
-    # template, passing the user information DataFrame 
-    # and the `url_for` function to it.
-
-    # Args:
-    #     user_id: A list of user IDs to filter the information.
-    #              Currently, this parameter is not used and all
-    #              user information is fetched. Defaults to None.
-
-    # Returns:
-    #     A string containing the rendered HTML content.
-    # """
-
-    # # fetch all user
+# @logged()
+# def render_all_user_information(requestee_username, url_for = None) -> str:
     
-    users = get_all_users(requestee_username=requestee_username)
-    users = pd.DataFrame([user.to_dict() for user in users])
-    template = env.get_template('user_information/view_all_user_information_table.html')
-    try:
-        return template.render(df=users,
-                           url_for=url_for)
-    except Exception as e:
-        return template.render(df=users,
-                               url_for=dummy)
+#     users = get_all_users(requestee_username=requestee_username)
+#     users = pd.DataFrame([user.to_dict() for user in users])
+#     template = env.get_template('user_information/view_all_user_information_table.html')
+#     try:
+#         return template.render(df=users,
+#                            url_for=url_for)
+#     except Exception as e:
+#         return template.render(df=users,
+#                                url_for=dummy)
 
 
-
+@logged()
 def render_view_user_information(requestee_id, system_wide_id) -> str:
-    """
-    User information can only be edited one at a time. Mass editing 
-    is diable.
-    """
+
     user = get_single_user(requestee_username=requestee_id,
                          user_system_wide_identifier=system_wide_id)
     table = pd.DataFrame([user.to_dict(),])
@@ -71,7 +65,7 @@ def render_view_user_information(requestee_id, system_wide_id) -> str:
                            sys_wide_id=str(user.system_wide_identifier),
                            address=str(user.address),
                            url_for=url_for)
-
+@logged()
 def render_edit_user_information(requestee_id, system_wide_id) -> str:
     user = get_single_user(requestee_username=requestee_id,
                          user_system_wide_identifier=system_wide_id)
@@ -85,6 +79,27 @@ def render_edit_user_information(requestee_id, system_wide_id) -> str:
                            address=str(user.address),
                            url_for=url_for)
 
+def render_change_password_form(systemwide_id):
+    template = env.get_template("user_information/change_password_form.html")
+    return template.render(sys_wide_id=systemwide_id)
+
+@logged()
+def render_change_password_result(requestee_username,systemwide_id, new_password):
+    result = "Successfully changed the password"
+    _,role = get_system_wide_id_and_role(requestee_username=requestee_username)
+    try:
+        change_password(
+            requestee_username=requestee_username, 
+            target_sys_id=systemwide_id, 
+            new_password=new_password)
+    except Exception as e:
+        result = "Fail changing the password"
+        print(repr(e))
+    template = env.get_template("user_information/change_password_status.html")
+    return template.render(status=result, render=(role != roles.ADMIN))
+
+    
+@logged()
 def render_search_page(requestee_id) -> str:
     try:
         check_search_access(requestee_id)
@@ -94,15 +109,10 @@ def render_search_page(requestee_id) -> str:
     return template.render(url_for=url_for)
 
 
+@logged()
 def update_rendered_user_information(requestee_username,
                                     system_wide_id,
                                     record_data) -> str:
-    # global user_information_table
-    # user_selector = user_information_table["username"] == username
-    # for key in user_information.keys():
-    #     user_information_table.loc[user_selector, key] = user_information[key]
-    # table = user_information_table[user_information_table["username"] == username]
-
 
     update_patient_basic_data(
         requestee_username=requestee_username,
@@ -111,6 +121,7 @@ def update_rendered_user_information(requestee_username,
     return render_view_user_information(requestee_id=requestee_username,
                                         system_wide_id=system_wide_id)
 
+@logged()
 def render_search_result(requestee_usernam, search_phrase):
     search_result:list[str] = search_users(
         requestee_username=requestee_usernam,
@@ -118,14 +129,86 @@ def render_search_result(requestee_usernam, search_phrase):
     template = env.get_template("search/search-result.html")
     return template.render(result=search_result)
 
+
 def render_test_template():
     template = env.get_template("index.html")
     return template.render(
                            url_for=url_for)
 
+@logged()
+def render_user_table(requestee_username):
+    def get_edit_link(row: pd.DataFrame):
+        template = env.get_template("admin_components/edit_cell_user_table.html")
+        return template.render(sys_id=row["system_wide_identifier"])
+    
+    try:
+        content = get_all_users(requestee_username=requestee_username)
+        table = pd.DataFrame(content).set_index("user_id")
+        table[" "] = table.apply(get_edit_link, axis=1)
+        content = table.style.set_table_attributes('class="table table-hover" hx-trigger="reload-user-table from:body" hx-get="/admin/user_table"').to_html()
+        return content
+    except Exception as e:
+        print(repr(e))
+    
+
+@logged()
+def render_view_all_user(requestee_username):
+    template = env.get_template("admin_components/admin_user.html")
+    return template.render(url_for=url_for)
+
+class CreateUserForm(Form):
+    full_name = StringField(label="Full Name", 
+                            validators=[
+                                validators.InputRequired(), 
+                                validators.Regexp(regex="^[A-Za-z0-9_. ]+$")
+                            ])
+    address = StringField(label="Address", 
+                            validators=[
+                                validators.InputRequired(), 
+                                validators.Regexp(regex="^[A-Za-z0-9_. ]+$")
+                            ])
+    hospital_designation = StringField(label="Designated hospital", 
+                                validators=[
+                                    validators.InputRequired(), 
+                                    validators.Regexp(regex="^[A-Za-z0-9_. ]+$")
+                                ],
+                                default="This hosital")
+    role_for_new_user = SelectField(label="Roles", choices=get_all_roles())
+
+@logged()
+def render_logs_table(requestee_username):
+    boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
+    with boa.fork("http://127.0.0.1:8545", allow_dirty=True):
+        contract_logger = boa.load_partial("src/Logger.vy").at("0x0C4340cD9aF4C01E65A1495408Acd02EF76D7637")
+        log_length = contract_logger.get_length() 
+        logs = []
+        for i in range(1, log_length):
+            logs.append(json.loads(contract_logger.log_db(i)))
+    table=pd.DataFrame(logs).sort_values("ts", ascending=False)
+    return table.style.set_table_attributes('class="table table-hover" hx-trigger="every 3s" hx-get="/admin/logs"').to_html()
+
+def render_added_user(requestee_username, request: Request):
+    form = CreateUserForm(request.form)
+    if request.method == 'POST' and form.validate():
+        username, password_plain = add_user(requestee_username=requestee_username,
+                                            full_name=form.full_name.data,
+                                            address=form.address.data,
+                                            hospital_designation=form.hospital_designation.data,
+                                            role_for_new_user=form.role_for_new_user.data)
+    template = env.get_template("admin_components/new_user_account.html")
+    return template.render(new_username = username, 
+                           new_password=password_plain,
+                           form=form)
+
+def render_add_user_form():
+    form = CreateUserForm()
+    template = env.get_template("admin_components/add_user_form.html")
+    return template.render(form=form)
+
+@logged()
 def render_user_information(requestee_username: str):
 
-    sys_id, role = get_system_wide_id(requestee_username=requestee_username)
+    sys_id, role = get_system_wide_id_and_role(requestee_username=requestee_username)
 
     if role == roles.PATIENT:
         return render_view_user_information(requestee_id=requestee_username,

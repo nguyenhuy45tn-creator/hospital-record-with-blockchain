@@ -17,16 +17,13 @@ RUN apt-get update && apt-get install -y \
 # Install Ganache CLI globally
 RUN npm install -g ganache
 
-# Copy the requirements file into the container
-COPY requirements.txt .
+# Copy the project files into the container
+COPY . .
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the project files into the container
-COPY . .
-
-# Make port 8545 available for Ganache, 5000 for a potential Flask app and  5432 for PostgreSQL
+# Make port 8545 available for Ganache, 5000 for a Flask app and  5432 for PostgreSQL
 EXPOSE 8545 5000 5432
 
 

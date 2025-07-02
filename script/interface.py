@@ -1,6 +1,8 @@
 # from moccasin.boa_tools import VyperContract
 # from boa.contracts.abi.abi_contract import ABIContract
 from datetime import datetime
+import json
+import boa
 class uint128(int):
     # this is only for better notation
     pass 
@@ -156,11 +158,15 @@ class Logger:
         self.contract_logger.add_log(log_mss)
     
 
-    def get_newest(self, lower_bound: int = 0, upper_bound: int = 2*128):
-        lower_bound = max(0, lower_bound)
-        upper_bound = min(upper_bound, self.contract_logger.get_length())
+    def get_newest(self, num: int):
+        length:int = self.contract_logger.get_length()
+        bound = max(length-num, 0)
+        res = []
+        for i in range(bound, length):
+            res.append(json.loads(self.contract_logger.get_value(i)))
 
-        return [self.contract_logger.log_db(i) for i in range(lower_bound, upper_bound)]
+                
+        return res
 
 
 class Log:

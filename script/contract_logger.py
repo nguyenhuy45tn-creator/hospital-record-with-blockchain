@@ -1,6 +1,4 @@
-from moccasin.config import get_config
-from boa.contracts.abi.abi_contract import ABIContract
-import boa
+import boa.interpret
 from eth_account import Account
 from script.interface import RoleRightChecker
 import inspect
@@ -10,17 +8,13 @@ from datetime import datetime
 import json
 from script.interface import Logger, Log
 from script.deploy import deploy
+import boa
 
-config = get_config()
-active_network = config.get_active_network()
 # Get the latest counter of the Counter contract
-contract_logger = active_network \
-                        .get_latest_contract_checked("Logger")
+boa.set_network_env("http://127.0.0.1:8545")
+boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
+contract_logger = boa.load_partial("src/Logger.vy").at("0x0C4340cD9aF4C01E65A1495408Acd02EF76D7637")
 
-if contract_logger is None:
-    deploy()
-    contract_logger = active_network \
-                        .get_latest_contract_checked("Logger")
 
 _logger = Logger(contract_logger)
 
@@ -31,7 +25,7 @@ def json_serial(obj):
     if isinstance(obj, uuid.UUID):
         return str(obj)
 
-def logged(logger: Logger= _logger):
+def logged(logger=_logger):
     def _inner_logged(func):
         @wraps(func)
         def with_logging(*args, **kwargs):

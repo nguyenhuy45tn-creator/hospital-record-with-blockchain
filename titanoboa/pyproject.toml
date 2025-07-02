@@ -1,0 +1,67 @@
+[project]
+name = "titanoboa"
+version = "0.2.7"
+description = "A Vyper interpreter"
+#authors = []
+license = { file = "LICENSE" }
+readme = "README.md"
+#homepage = "https://github.com/vyperlang/titanoboa"
+#repository = "https://github.com/vyperlang/titanoboa"
+#documentation =
+
+keywords = ["ethereum", "evm", "smart contract", "development"]
+
+classifiers = ["Topic :: Software Development"]
+
+# Requirements
+dependencies = [
+    "vyper>=0.4.2",
+    "eth-stdlib>=0.2.7,<0.3.0",
+    "eth-abi",
+    "py-evm>=0.10.0b4",
+    "eth-typing",
+    "hypothesis",
+    "pytest",
+    "pytest-cov",
+
+    # required to compile older versions of vyper
+    "vvm>=0.3.2",
+
+    # eth-rlp requirement, not installed by default with 3.12
+    "typing-extensions",
+
+    # gas profiling tables
+    "rich",
+
+    # required for forking:
+    "requests",
+
+    # required for networked accounts
+    "eth-account>=0.13.0",
+    "mkdocs-material==9.5.41 ",
+]
+
+[project.optional-dependencies]
+forking-recommended = ["ujson>=5.10.0", "requests-cache>=1.2.1"]
+
+# colab has antient ipykernel which causes bugs with decimals: https://github.com/jupyter/notebook/issues/5260
+colab = ["ipykernel>=6.29.4"]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+
+[tool.setuptools.packages.find]
+include = ["boa*"]
+
+[tool.pytest.ini_options]
+markers = [
+    "ignore_isolation: Do not preserve state during tests",
+    "gas_profile: Enable gas profiling.",
+    "ignore_profiling: Disable gas profiling.",
+]
+
+[tool.setuptools.package-data]
+boa = ["integrations/**/*.js", "contracts/**/*.html"]
+
+#[dev-dependencies]
+#black = { version = "^18.3-alpha.0", python = "^3.6" }

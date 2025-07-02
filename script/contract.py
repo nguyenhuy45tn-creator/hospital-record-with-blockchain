@@ -16,14 +16,13 @@ from eth_account import Account
 def create_role_right_checker() -> RoleRightChecker:
     
     boa.set_network_env("http://127.0.0.1:8545")
-    contract_info = get_latest_contract_information("RoleRightChecker")
 
     boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
     
     user_right_checker = RoleRightChecker(
                             boa
                             .load_partial("src/RoleRightChecker.vy")
-                            .at(contract_info[1]))
+                            .at("0x7b6c74b742e3066cC00467D3926c29575e1B96a7"))
 
     return user_right_checker
 

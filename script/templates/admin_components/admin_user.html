@@ -1,0 +1,39 @@
+{% extends 'admin_base.html' %}
+
+{% block User %}
+
+<!-- <div class="container" style="width: 100%;" id="users">
+    <div class="row">
+        <div class="col-sm-9">
+            <h2> 
+                User administration
+            </h2>
+        </div>
+        <div class="col-sm-3">
+            <button
+                hx-get="/admin/add_user"
+                hx-target="#add-user-form"
+                hx-trigger="click"
+                data-bs-toggle="modal"
+                data-bs-target="#add-user-form"
+                class="btn primary btn-light">
+                <u><h3>Add user</h3></u>
+            </button>
+
+            <div id="add-user-form"
+                class="modal modal-blur fade"
+                style="display: none"
+                aria-hidden="false"
+                tabindex="-1">
+                <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+                    <div class="modal-content">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row-sm" hx-get="admin/user_table" hx-trigger="load">
+        <span class="loader"></span>
+    </div>
+</div> -->
+{% endblock %}

@@ -1,7 +1,7 @@
 import uuid
 import string
 from datetime import datetime, timezone
-
+import pandas as pd
 from sqlalchemy import (
     create_engine,
     Column,
@@ -26,6 +26,7 @@ from random import choices
 from script.interface import RoleRightChecker 
 from script.roles import ADMIN
 from script.contract import create_role_right_checker
+from script.contract_logger import logged
 
 from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, WRITE_PATIENT_BASIC_DATA, READ_PATIENT_HEALTHCARE_RECORD_DATA, WRITE_PATIENT_HEALTHCARE_RECORD_DATA,READ_OWN_HEALTHCARE_RECORD_RIGHT, ADD_USER_ROLE, CHANGE_OWN_PASSWORD_RIGHT, ADMIN_CHANGE_USER_PASSWORD_RIGHT
 
@@ -50,7 +51,7 @@ class Role(Base):
     users = relationship("User", back_populates="role") # A role can have multiple users
 
     def __repr__(self):
-        return f"<Role(role_name='{self.role_name}')>"
+        return f"{self.role_name}"
     
     
 class Login(Base):
@@ -64,7 +65,7 @@ class Login(Base):
     user = relationship("User", back_populates="login_details", uselist=False, cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Login(user_name='{self.user_name}')>"
+        return f"{self.user_name}"
 
 class User(Base):
     __versioned__ = {}
@@ -174,7 +175,7 @@ class HealthcareRecord(Base):
                 pass # Keep version_display as None
         return f"<HealthcareRecord(record_id={self.record_id}, patient_user_id={self.patient_user_id}, version={version_display})>"
 
-engine = None # Initialize engine as None at module level
+
 
 def initialize_database():
     """
@@ -186,14 +187,16 @@ def initialize_database():
     """
     global engine
     if engine is None:
-        DATABASE_URL = environ['DATABASE_URL']
+        DATABASE_URL = environ.get('DATABASE_URL', "postgresql://postgres:postgres@localhost:5432/sampledb")
         configure_mappers() # Ensure all mappers are configured before creating tables
-        current_engine = create_engine(DATABASE_URL)
+        current_engine = create_engine(DATABASE_URL, pool_pre_ping=True)
         Base.metadata.create_all(current_engine)
         engine = current_engine
         print("Database engine initialized and tables created.")
     return engine
 
+DATABASE_URL = environ.get('DATABASE_URL', "postgresql://postgres:postgres@localhost:5432/sampledb")
+engine = create_engine(DATABASE_URL) # Initialize engine as None at module level
 
 def _get_requestee_user_and_role(session, requestee_username: str):
     """Helper to fetch the requestee user and their role name."""
@@ -283,9 +286,19 @@ def get_all_users(requestee_username: str):
         _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
 
         query =  select(User)
+        representation = []
+        output = session.execute(query).fetchall()
+        for row in output:
+            for user in row:
+                # print(user)
+                representation.append(user.to_dict())
+    return representation
+
+def get_all_roles(): #no validate, not public endpoint
+    with Session(engine) as session:
+        query = select(Role)
         output = session.execute(query).scalars().all()
     return output
-        
 
 
 def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
@@ -311,6 +324,7 @@ def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
         PermissionError: If the requestee does not have permission to view these health records.
     """
     with Session(engine) as session:
+        role_right_checker = create_role_right_checker()
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
         if requestee_user.system_wide_identifier == patient_swid:
             _check_access(role_right_checker, requestee_role_name, READ_OWN_HEALTHCARE_RECORD_RIGHT, f"view own health records (Patient SWID: {patient_swid})")
@@ -327,7 +341,7 @@ def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
         records = session.execute(query).scalars().all()
     return records
 
-
+@logged()
 def add_user(requestee_username: str, full_name: str, address: str, hospital_designation: str, role_for_new_user: str):
     """
     Adds a new user and their login credentials to the database.
@@ -351,6 +365,8 @@ def add_user(requestee_username: str, full_name: str, address: str, hospital_des
     """
     with Session(engine) as session:
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+
+        role_right_checker = create_role_right_checker()
         _check_access(role_right_checker, requestee_role_name, WRITE_PATIENT_BASIC_DATA, "add a new user")
 
         # Generate a random username and password
@@ -392,7 +408,7 @@ def add_user(requestee_username: str, full_name: str, address: str, hospital_des
     return username, password_plain
 
         
-
+@logged()
 def add_health_record(requestee_username: str, patient_user_id:int, record_data:dict):
     """
     Adds a new healthcare record for a specific user.
@@ -444,6 +460,7 @@ def update_health_record(requestee_username: str, record_id:int, record_data:dic
         ValueError: If requestee_username is invalid.
     """
     with Session(engine) as session:
+        role_right_checker = create_role_right_checker()
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
         _check_access(role_right_checker, requestee_role_name, WRITE_PATIENT_HEALTHCARE_RECORD_DATA, f"update health record ID {record_id}")
 
@@ -458,6 +475,7 @@ def update_health_record(requestee_username: str, record_id:int, record_data:dic
         else:
             raise ValueError(f"Record with ID '{record_id}' not found.")
 
+@logged()
 def update_patient_basic_data(requestee_username: str, sys_wide_id:int, record_data:dict):
     """
     Updates an existing healthcare record.
@@ -494,7 +512,8 @@ def update_patient_basic_data(requestee_username: str, sys_wide_id:int, record_d
             return
         else:
             raise ValueError(f"Cannot find user")
-        
+
+@logged()
 def add_role(requestee_username: str, role_name_to_add:str, description:str):
     """
     Adds a new role to the database.
@@ -510,6 +529,7 @@ def add_role(requestee_username: str, role_name_to_add:str, description:str):
         ValueError: If a role with the given role_name already exists.
     """
     with Session(engine) as session:
+        role_right_checker = create_role_right_checker()
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
         _check_access(role_right_checker, requestee_role_name, ADD_USER_ROLE, f"add new role '{role_name_to_add}'")
 
@@ -523,7 +543,7 @@ def add_role(requestee_username: str, role_name_to_add:str, description:str):
         session.add(new_role)
         session.commit()
     
-def change_password(requestee_username: str, target_username:str, new_password:str):
+def change_password(requestee_username: str, target_sys_id:str, new_password:str):
     """
     Changes the password for a given user.
     Access control is performed. Users can change their own password, or an admin
@@ -539,18 +559,22 @@ def change_password(requestee_username: str, target_username:str, new_password:s
         PermissionError: If the requestee does not have permission.
         ValueError: If the username does not exist.
     """
+    role_right_checker = create_role_right_checker()
     with Session(engine) as session:
+
         _requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
 
-        if requestee_username == target_username:
+        target_user_for_swid_check = session.query(User).filter(User.system_wide_identifier == target_sys_id).one_or_none()
+
+        if _requestee_user.system_wide_identifier == target_user_for_swid_check.system_wide_identifier:
             _check_access(role_right_checker, requestee_role_name, CHANGE_OWN_PASSWORD_RIGHT, "change own password")
         else:
-            _check_access(role_right_checker, requestee_role_name, ADMIN_CHANGE_USER_PASSWORD_RIGHT, f"change password for user '{target_username}'")
+            _check_access(role_right_checker, requestee_role_name, ADMIN_CHANGE_USER_PASSWORD_RIGHT, f"change password for user '{target_sys_id}'")
 
-        login_entry = session.query(Login).filter_by(user_name=target_username).first()
+        login_entry = session.query(Login).filter_by(user_name=target_user_for_swid_check.user_name).first()
 
         if not login_entry:
-            raise ValueError(f"User '{target_username}' not found.")
+            raise ValueError(f"User '{target_user_for_swid_check.user_name}' not found.")
 
         # Generate new salt and hash the new password
         new_salt = gensalt()
@@ -561,7 +585,7 @@ def change_password(requestee_username: str, target_username:str, new_password:s
         login_entry.hashed_password = new_hashed_password
 
         session.commit()
-        print(f"Password for user '{target_username}' changed successfully by '{requestee_username}'.")
+        print(f"Password for user '{target_sys_id}' changed successfully by '{requestee_username}'.")
 
 
 def check_password(username: str, password_to_check: str) -> bool:
@@ -590,8 +614,8 @@ def check_search_access(requestee_username):
     with Session(engine) as session:
         role_right_checker = create_role_right_checker()
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
-    print("role name----------", requestee_role_name)
-    _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
+        print("role name----------", requestee_role_name)
+        _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
 
 def search_users(requestee_username, search_phrase:str):
     with Session(engine) as session:
@@ -640,8 +664,8 @@ def search_users(requestee_username, search_phrase:str):
     return result # send the result directly
 
 
-
-def get_system_wide_id(requestee_username: str) -> tuple[str, str]:
+@logged()
+def get_system_wide_id_and_role(requestee_username: str) -> tuple[str, str]:
     """
     Purposefully left no security check since the informaiton returned is 
     highly low impact. This is to classify user_information page.

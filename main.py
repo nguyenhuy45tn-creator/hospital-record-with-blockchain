@@ -1,19 +1,27 @@
-from flask import Flask, render_template_string, request, redirect, url_for, flash
+from flask import Flask, render_template_string, request, redirect, url_for, flash, render_template, make_response
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask_admin import Admin, helpers
 from flask import session
 from uuid import uuid4
 from pathlib import Path
 import os
 from jinja2 import Environment
+from sqlalchemy.orm import DeclarativeBase
+import pandas as pd
+
+from script import roles
 
 # db workflow
 from script.db_connection import initialize_database, check_password
 from script.db_connection import populate_example_data, Session
 from script.db_connection import Login as DBLogin
+from script.db_connection import HealthcareRecord, Role
+from script.db_connection import add_user
+from script.db_connection import get_system_wide_id_and_role
 import script.db_connection 
 
 #cusotm import
-from script.renderer import render_all_user_information
+from script.renderer import render_add_user_form
 from script.renderer import render_view_user_information
 from script.renderer import render_edit_user_information
 from script.renderer import update_rendered_user_information
@@ -21,15 +29,22 @@ from script.renderer import render_test_template
 from script.renderer import render_user_information
 from script.renderer import render_search_page
 from script.renderer import render_search_result
+from script.renderer import render_added_user
+from script.renderer import render_view_all_user
+from script.renderer import render_user_table
+from script.renderer import render_logs_table
+from script.renderer import render_change_password_form
+from script.renderer import render_change_password_result
 
+from script.contract_logger import _logger
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="script/templates")
 app.secret_key = "super secret string"
+app.config['SQLALCHEMY_DATABASE_URI']="postgresql://postgres:postgres@localhost:5432/sampledb"
+app.config["root_path"]=os.getcwd()
 cwd = Path(os.getcwd())
 app.static_folder = cwd/"script"/"static"
 
-if not app.has_static_folder:
-    raise ImportError("No static folder found")
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -91,6 +106,7 @@ def login():
         password = request.form['password']
 
         # Requires db_connection.engine to be initialized.
+    
         if check_password(username, password):
             user_obj = User(username=username)
             login_user(user_obj)
@@ -101,6 +117,65 @@ def login():
 
     return render_template_string(login_template_html)
 
+@app.route("/permission_error")
+def permission_error():
+    return "You don't ahve enough permission to access this page"
+
+@app.route("/admin")
+@login_required
+def load_admin_page():
+
+    if not check_is_admin(current_user.id):
+        return redirect(url_for("permission_error"))
+    
+    return render_view_all_user(current_user.id)
+        
+
+def check_is_admin(username) -> bool:
+    try:
+        out = get_system_wide_id_and_role(current_user.id)
+        if out:
+            if out[1] == roles.ADMIN:
+                return True
+    except Exception as e:
+        print("Error while getting role:", repr(e))
+    return False
+    
+@app.route("/admin/user_table")
+@login_required
+def load_user_table():
+    if not check_is_admin(current_user.id):
+        return redirect(url_for("permission_error"))
+    
+    try:
+        return render_user_table(current_user.id)
+    except Exception as e:
+        print(e)
+
+@app.route("/admin/add_user", methods = ["POST","GET"])
+@login_required
+def add_user():
+    if not check_is_admin(current_user.id):
+        return redirect(url_for("permission_error"))
+
+    if request.method == "GET":
+        return render_add_user_form()
+    if request.method == "POST":
+        try:
+            result = render_added_user(current_user.id, request=request)
+            response = make_response(result)
+            response.headers['HX-Trigger'] = 'reload-user-table'
+            return response
+        except Exception as e:
+            raise e
+
+@app.route("/admin/logs")
+@login_required
+def load_logs_table():
+    if not check_is_admin(current_user.id):
+        return redirect(url_for("permission_error"))
+    
+    return render_logs_table(current_user.id)
 
 @app.route('/user_information', methods=["GET"])
 @login_required 
@@ -159,19 +234,26 @@ def search():
         else:
             return "No search phrase found"
 
-@app.route("/test_endpoint")
-def test():
+@app.route("/change_password/<systemwide_id>", methods=["GET","POST"])
+def change_password(systemwide_id):
 
-
-    return render_test_template()
+    if request.method == "GET":
+        return render_change_password_form(systemwide_id)
+    if request.method == "POST":
+        new_password = request.form.get("new_password")
+        print("Post request -----------", request.form)
+        if new_password:
+            return render_change_password_result(
+                        requestee_username=current_user.id,
+                        systemwide_id=systemwide_id,
+                        new_password=new_password)
 
 def moccasin_main():
     initialize_database()
     populate_example_data()
 
     app.run(debug=True, 
-            threaded=False, 
-            processes = 4,
+            threaded=True,
             host='0.0.0.0',
             port=5000
     )
