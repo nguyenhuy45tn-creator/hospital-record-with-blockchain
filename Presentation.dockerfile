@@ -26,8 +26,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the project files into the container
 COPY . .
 
-# Make port 8545 available for Ganache, 5001 for a potential Flask app and  5432 for PostgreSQL
-EXPOSE 8545 5001 5432
+# Make port 8545 available for Ganache, 5000 for a Flask app and  5432 for PostgreSQL
+EXPOSE 8545 5000 5432
 
 
 
