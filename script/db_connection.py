@@ -189,7 +189,7 @@ def initialize_database():
     if engine is None:
         DATABASE_URL = environ.get('DATABASE_URL', "postgresql://postgres:postgres@localhost:5432/sampledb")
         configure_mappers() # Ensure all mappers are configured before creating tables
-        current_engine = create_engine(DATABASE_URL)
+        current_engine = create_engine(DATABASE_URL, pool_pre_ping=True)
         Base.metadata.create_all(current_engine)
         engine = current_engine
         print("Database engine initialized and tables created.")
@@ -324,6 +324,7 @@ def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
         PermissionError: If the requestee does not have permission to view these health records.
     """
     with Session(engine) as session:
+        role_right_checker = create_role_right_checker()
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
         if requestee_user.system_wide_identifier == patient_swid:
             _check_access(role_right_checker, requestee_role_name, READ_OWN_HEALTHCARE_RECORD_RIGHT, f"view own health records (Patient SWID: {patient_swid})")
@@ -459,6 +460,7 @@ def update_health_record(requestee_username: str, record_id:int, record_data:dic
         ValueError: If requestee_username is invalid.
     """
     with Session(engine) as session:
+        role_right_checker = create_role_right_checker()
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
         _check_access(role_right_checker, requestee_role_name, WRITE_PATIENT_HEALTHCARE_RECORD_DATA, f"update health record ID {record_id}")
 
@@ -527,6 +529,7 @@ def add_role(requestee_username: str, role_name_to_add:str, description:str):
         ValueError: If a role with the given role_name already exists.
     """
     with Session(engine) as session:
+        role_right_checker = create_role_right_checker()
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
         _check_access(role_right_checker, requestee_role_name, ADD_USER_ROLE, f"add new role '{role_name_to_add}'")
 
@@ -611,8 +614,8 @@ def check_search_access(requestee_username):
     with Session(engine) as session:
         role_right_checker = create_role_right_checker()
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
-    print("role name----------", requestee_role_name)
-    _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
+        print("role name----------", requestee_role_name)
+        _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
 
 def search_users(requestee_username, search_phrase:str):
     with Session(engine) as session:
