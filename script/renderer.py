@@ -86,6 +86,7 @@ def render_change_password_form(systemwide_id):
 @logged()
 def render_change_password_result(requestee_username,systemwide_id, new_password):
     result = "Successfully changed the password"
+    _,role = get_system_wide_id_and_role(requestee_username=requestee_username)
     try:
         change_password(
             requestee_username=requestee_username, 
@@ -95,7 +96,7 @@ def render_change_password_result(requestee_username,systemwide_id, new_password
         result = "Fail changing the password"
         print(repr(e))
     template = env.get_template("user_information/change_password_status.html")
-    return template.render(status=result)
+    return template.render(status=result, render=(role != roles.ADMIN))
 
     
 @logged()
@@ -112,12 +113,6 @@ def render_search_page(requestee_id) -> str:
 def update_rendered_user_information(requestee_username,
                                     system_wide_id,
                                     record_data) -> str:
-    # global user_information_table
-    # user_selector = user_information_table["username"] == username
-    # for key in user_information.keys():
-    #     user_information_table.loc[user_selector, key] = user_information[key]
-    # table = user_information_table[user_information_table["username"] == username]
-
 
     update_patient_basic_data(
         requestee_username=requestee_username,
