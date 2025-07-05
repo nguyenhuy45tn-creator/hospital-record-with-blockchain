@@ -28,7 +28,7 @@ from script.renderer import render_change_password_form
 from script.renderer import render_change_password_result
 
 app = Flask(__name__, template_folder="script/templates")
-app.secret_key = "super secret string"
+app.secret_key = os.environ.get("SECRET_KEY", "super secret string")
 app.config["root_path"]=os.getcwd()
 cwd = Path(os.getcwd())
 app.static_folder = cwd/"script"/"static"
@@ -241,7 +241,8 @@ def moccasin_main():
     initialize_database()
     populate_example_data()
 
-    app.run(debug=True, 
+    is_debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    app.run(debug=is_debug_mode, 
             threaded=True,
             host='0.0.0.0',
             port=5000
