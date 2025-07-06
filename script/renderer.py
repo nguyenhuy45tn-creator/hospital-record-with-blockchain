@@ -1,7 +1,7 @@
 import pandas as pd
 from eth_account import Account
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from flask import url_for, jsonify, Request
+from flask import url_for, jsonify, Request, get_flashed_messages
 from flask import redirect
 from wtforms import Form, StringField, PasswordField, SelectField, validators
 import json
@@ -78,6 +78,10 @@ def render_edit_user_information(requestee_id, system_wide_id) -> str:
                            sys_wide_id=str(user.system_wide_identifier),
                            address=str(user.address),
                            url_for=url_for)
+@logged()
+def render_login_page():
+    template = env.get_template("login_page.html")
+    return template.render(url_for=url_for, get_flashed_messages=get_flashed_messages)
 
 def render_change_password_form(systemwide_id):
     template = env.get_template("user_information/change_password_form.html")

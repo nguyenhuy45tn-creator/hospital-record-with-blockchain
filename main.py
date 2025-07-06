@@ -33,8 +33,9 @@ from script.renderer import render_added_user
 from script.renderer import render_view_all_user
 from script.renderer import render_user_table
 from script.renderer import render_logs_table
-from script.renderer import render_change_password_form
+from script.renderer import render_change_password_form 
 from script.renderer import render_change_password_result
+from script.renderer import render_login_page
 
 from script.contract_logger import _logger
 
@@ -75,31 +76,11 @@ def load_user(user_id):
     return None
 
 # Simple HTML form template
-login_template_html = '''
-<!doctype html>
-<title>Login</title>
-<h2>Login Page</h2>
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul class=flashes>
-    {% for message in messages %}
-      <li style="color:red;">{{ message }}</li>
-    {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
-<form method="POST">
-    Username: <input type="text" name="username" required><br><br>
-    Password: <input type="password" name="password" required><br><br>
-    <input type="submit" value="Login">
-</form>
-<p><a href="{{ url_for('dashboard') }}">Go to Dashboard</a></p>
-'''
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST']) 
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('dashboard')) 
 
     if request.method == 'POST':
         username = request.form['username']
@@ -114,8 +95,7 @@ def login():
             return redirect(request.args.get('next') or url_for('dashboard'))
         else:
             flash('Invalid username or password.')
-
-    return render_template_string(login_template_html)
+    return render_login_page()
 
 @app.route("/permission_error")
 def permission_error():
