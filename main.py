@@ -113,7 +113,7 @@ def load_admin_page():
 
 def check_is_admin(username) -> bool:
     try:
-        out = get_system_wide_id_and_role(current_user.id)
+        out = get_system_wide_id_and_role(username)
         if out:
             if out[1] == roles.ADMIN:
                 return True
@@ -198,6 +198,8 @@ def logout():
 @app.route('/')
 def dashboard():
     if current_user.is_authenticated:
+        if check_is_admin(current_user.id):
+            return redirect(url_for('load_admin_page'))
         return redirect(url_for('get_all_user_information'))#Filler: should redirect to individual user information once we the test data anymore
     else:
         return redirect(url_for('login'))
