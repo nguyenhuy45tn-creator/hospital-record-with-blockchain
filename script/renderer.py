@@ -17,7 +17,7 @@ from script.db_connection import add_user
 from script.db_connection import get_all_roles
 from script.db_connection import change_password
 
-from script.contract_logger import logged, _logger, contract_logger
+from script.contract_logger import logged, contract_logger
 
 from script import roles
 
@@ -153,7 +153,11 @@ def render_user_table(requestee_username):
         return content
     except Exception as e:
         print(repr(e))
-    
+
+@logged()
+def render_permission_denied():
+    template = env.get_template("permission_error.html")
+    return template.render(url_for=url_for)
 
 @logged()
 def render_view_all_user(requestee_username):
@@ -183,7 +187,7 @@ class CreateUserForm(Form):
 def render_logs_table(requestee_username):
     boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
     with boa.fork("http://127.0.0.1:8545", allow_dirty=True):
-        contract_logger = boa.load_partial("src/Logger.vy").at("0x0C4340cD9aF4C01E65A1495408Acd02EF76D7637")
+        contract_logger = boa.load_partial("src/Logger.vy").at("0xBbc121f934aCD16c503305858bccaEB928aCF067")
         log_length = contract_logger.get_length() 
         logs = []
         for i in range(1, log_length):

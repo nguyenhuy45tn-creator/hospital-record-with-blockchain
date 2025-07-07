@@ -36,6 +36,7 @@ from script.renderer import render_logs_table
 from script.renderer import render_change_password_form 
 from script.renderer import render_change_password_result
 from script.renderer import render_login_page
+from script.renderer import render_permission_denied
 
 from script.contract_logger import _logger
 
@@ -99,13 +100,13 @@ def login():
 
 @app.route("/permission_error")
 def permission_error():
-    return "You don't ahve enough permission to access this page"
+    return render_permission_denied()
 
 @app.route("/admin")
 @login_required
 def load_admin_page():
 
-    if not check_is_admin(current_user.id):
+    if not check_is_admin(current_user.id): 
         return redirect(url_for("permission_error"))
     
     return render_view_all_user(current_user.id)
@@ -150,7 +151,7 @@ def add_user():
             raise e
 
 @app.route("/admin/logs")
-@login_required
+@login_required 
 def load_logs_table():
     if not check_is_admin(current_user.id):
         return redirect(url_for("permission_error"))
