@@ -81,7 +81,7 @@ def load_user(user_id):
 @app.route('/login', methods=['GET', 'POST']) 
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard')) 
+        return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
         username = request.form['username']
@@ -96,7 +96,7 @@ def login():
             return redirect(request.args.get('next') or url_for('dashboard'))
         else:
             flash('Invalid username or password.')
-    return render_login_page()
+    return render_login_page() 
 
 @app.route("/permission_error")
 def permission_error():

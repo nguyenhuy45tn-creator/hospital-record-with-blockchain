@@ -17,7 +17,7 @@ from script.db_connection import add_user
 from script.db_connection import get_all_roles
 from script.db_connection import change_password
 
-from script.contract_logger import logged, contract_logger
+from script.contract_logger import logged, contract_logger, conn
 
 from script import roles
 
@@ -186,12 +186,23 @@ class CreateUserForm(Form):
 @logged()
 def render_logs_table(requestee_username):
     boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
-    with boa.fork("http://127.0.0.1:8545", allow_dirty=True):
-        contract_logger = boa.load_partial("src/Logger.vy").at("0xBbc121f934aCD16c503305858bccaEB928aCF067")
-        log_length = contract_logger.get_length() 
-        logs = []
-        for i in range(1, log_length):
-            logs.append(json.loads(contract_logger.log_db(i)))
+    contract_logger = boa.load_partial("src/Logger.vy").at("0xBbc121f934aCD16c503305858bccaEB928aCF067")
+
+    if conn is not None:
+        total_cached_rec = conn.execute("""
+            SELECT log_mss
+            FROM cached_logs
+        """).fetchall()
+
+    if len(total_cached_rec) == contract_logger.get_length():
+        logs = [json.loads(mss[0]) for mss in total_cached_rec]
+    else:
+        with boa.fork("http://127.0.0.1:8545"):
+            log_length = contract_logger.get_length() 
+            logs = []
+            for i in range(1, log_length):
+                logs.append(json.loads(contract_logger.log_db(i)))
+
     table=pd.DataFrame(logs).sort_values("ts", ascending=False)
     return table.style.set_table_attributes('class="table table-hover" hx-trigger="every 3s" hx-get="/admin/logs"').to_html()
 
