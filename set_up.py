@@ -25,6 +25,7 @@ user_right_checker.add_role_w_right(ADMIN, rights.CHANGE_OWN_PASSWORD_RIGHT)
 user_right_checker.add_role_w_right(ADMIN, rights.ADMIN_CHANGE_USER_PASSWORD_RIGHT)
 user_right_checker.add_role_w_right(DOCTOR, READ_PATIENT_BASIC_DATA)
 user_right_checker.add_role_w_right(DOCTOR, READ_PATIENT_HEALTHCARE_RECORD_DATA)
+user_right_checker.add_role_w_right(DOCTOR, rights.CHANGE_OWN_PASSWORD_RIGHT)
 
 user_right_checker.add_role_w_right(PATIENT, READ_OWN_PATIENT_BASIC_DATA)
 user_right_checker.add_role_w_right(PATIENT, READ_OWN_HEALTHCARE_RECORD_RIGHT)
