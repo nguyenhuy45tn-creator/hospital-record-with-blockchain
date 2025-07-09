@@ -12,7 +12,10 @@ from script.db_connection import Login as DBLogin
 from script.db_connection import get_system_wide_id_and_role
 import script.db_connection 
 
-#cusotm import
+# Initialize DB before other imports that need it
+initialize_database()
+
+#custom import
 from script.renderer import render_add_user_form
 from script.renderer import render_view_user_information
 from script.renderer import render_edit_user_information
