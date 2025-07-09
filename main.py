@@ -247,6 +247,78 @@ def change_password(systemwide_id):
                         requestee_username=current_user.id,
                         systemwide_id=systemwide_id,
                         new_password=new_password)
+@app.route('/my-health-records', methods=['GET'])
+@login_required
+def get_my_healthcare_records():
+    from script.db_connection import get_health_records
+
+    try:
+        username = current_user.id
+        swid, _ = get_system_wide_id_and_role(username)
+
+        records = get_health_records(
+            requestee_username=username,
+            patient_swid=swid
+        )
+
+        formatted_records = [{
+            "record_id": r.record_id,
+            "patient_user_id": r.patient_user_id,
+            "last_updated_at": r.last_updated_at.isoformat() if r.last_updated_at else "N/A",
+            "last_updated_by_user_id": r.last_updated_by_user_id,
+            "record_data": r.record_data
+        } for r in records]
+         
+        return render_template("healthcare_record.html", records=formatted_records, username=username)
+
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch healthcare records: {str(e)}")
+        return f"<h3>Error fetching healthcare records: {str(e)}</h3>", 500
+
+@app.route('/add-record', methods=['POST'])
+@login_required
+def add_healthcare_record():
+    try:
+        from script.db_connection import add_health_record, get_system_wide_id_and_role
+        username = current_user.id
+        swid, _ = get_system_wide_id_and_role(username)
+
+        from script.db_connection import get_user_id_by_swid
+        with Session(engine) as session:
+            patient_user = session.query(User).filter(User.system_wide_identifier == swid).first()
+            if not patient_user:
+                return "Patient not found", 404
+
+            # Parse form data
+            allergies = request.form.get('allergies', '').split(',')
+            conditions = request.form.get('conditions', '').split(',')
+            raw_meds = request.form.get('medications', '')
+            notes = request.form.get('notes', '')
+
+            medications = []
+            for med in raw_meds.split(';'):
+                parts = med.strip().split('|')
+                if len(parts) == 3:
+                    medications.append({
+                        "name": parts[0].strip(),
+                        "dosage": parts[1].strip(),
+                        "frequency": parts[2].strip()
+                    })
+
+            record_data = {
+                "allergies": [a.strip() for a in allergies if a.strip()],
+                "conditions": [c.strip() for c in conditions if c.strip()],
+                "medications": medications,
+                "notes": notes.strip()
+            }
+
+            add_health_record(username, patient_user_id=patient_user.user_id, record_data=record_data)
+
+        return redirect(url_for('get_my_healthcare_records'))
+
+    except Exception as e:
+        print(f"Error adding health record: {e}")
+        return f"<h4>Error: {e}</h4>", 500
 
 def moccasin_main():
     initialize_database()
@@ -255,7 +327,7 @@ def moccasin_main():
     app.run(debug=True, 
             threaded=True,
             host='0.0.0.0',
-            port=5000
+            port=5050
     )
 
 
