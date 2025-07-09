@@ -38,8 +38,6 @@ from script.renderer import render_change_password_result
 from script.renderer import render_login_page
 from script.renderer import render_permission_denied
 
-from script.contract_logger import _logger
-
 app = Flask(__name__, template_folder="script/templates")
 app.secret_key = "super secret string"
 app.config['SQLALCHEMY_DATABASE_URI']="postgresql://postgres:postgres@localhost:5432/sampledb"
