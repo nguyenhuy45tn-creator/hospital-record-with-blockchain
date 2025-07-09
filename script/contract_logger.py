@@ -15,7 +15,15 @@ from pathlib import Path
 # Get the latest counter of the Counter contract
 boa.set_network_env("http://127.0.0.1:8545")
 boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
-contract_logger = boa.load_partial("src/Logger.vy").at("0xBbc121f934aCD16c503305858bccaEB928aCF067")
+
+if not Path("cache/contract_logger.address").exists():
+    contract_logger = boa.load("src/Logger.vy")
+    with open("cache/contract_logger.address","w") as file:
+        address = file.write(contract_logger.address)
+else:
+    with open("cache/contract_logger.address","r") as file:
+            address = file.read()
+    contract_logger = boa.load_partial("src/Logger.vy").at(address)
 
 _logger = Logger(contract_logger)
 
