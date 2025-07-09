@@ -11,6 +11,8 @@ from script.deploy import deploy
 import sqlite3
 import boa
 from pathlib import Path
+from web3 import Web3
+
 
 # Get the latest counter of the Counter contract
 boa.set_network_env("http://127.0.0.1:8545")
@@ -53,7 +55,6 @@ if conn is not None:
                 """, (log_mss,)
                 )
     conn.commit()
-
 
 
 

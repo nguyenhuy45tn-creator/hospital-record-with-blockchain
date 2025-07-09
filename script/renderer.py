@@ -20,7 +20,7 @@ from script.db_connection import change_password
 from script.contract_logger import logged, contract_logger, conn
 
 from script import roles
-
+from web3 import Web3
 #logger
 from script.contract_logger import logged
 
@@ -185,10 +185,17 @@ class CreateUserForm(Form):
 
 @logged()
 def render_logs_table(requestee_username):
-    boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
-    with open("cache/contract_logger.address","r") as file:
-        address = file.read()
-    contract_logger = boa.load_partial("src/Logger.vy").at(address)
+    
+    
+    w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
+    if not w3.is_connected():
+        raise ConnectionAbortedError("No provider found")
+    
+    weth_contract = w3.eth.contract(
+        address=contract_logger.address, 
+        abi=contract_logger.abi)
+    
+    logs = weth_contract.events.AppLog().get_logs(from_block=w3.eth.block_number)
 
     if conn is not None:
         total_cached_rec = conn.execute("""
@@ -196,10 +203,11 @@ def render_logs_table(requestee_username):
             FROM cached_logs
         """).fetchall()
 
-    if len(total_cached_rec) == contract_logger.get_length():
+    print(f"logs is {logs[-1]}")
+    if len(total_cached_rec) == logs[-1].args.value:
         logs = [json.loads(mss[0]) for mss in total_cached_rec]
     else:
-        with boa.fork("http://127.0.0.1:8545"):
+        with boa.fork("http://127.0.0.1:8545", allow_dirty=True):
             log_length = contract_logger.get_length() 
             logs = []
             for i in range(1, log_length):
