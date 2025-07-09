@@ -204,7 +204,7 @@ def render_logs_table(requestee_username):
         """).fetchall()
 
     print(f"logs is {logs[-1]}")
-    if len(total_cached_rec) == logs[-1].args.value:
+    if len(total_cached_rec) == logs[0].args.value:
         logs = [json.loads(mss[0]) for mss in total_cached_rec]
     else:
         with boa.fork("http://127.0.0.1:8545", allow_dirty=True):
