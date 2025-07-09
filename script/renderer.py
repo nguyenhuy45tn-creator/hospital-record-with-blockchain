@@ -186,7 +186,9 @@ class CreateUserForm(Form):
 @logged()
 def render_logs_table(requestee_username):
     boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
-    contract_logger = boa.load_partial("src/Logger.vy").at("0xBbc121f934aCD16c503305858bccaEB928aCF067")
+    with open("cache/contract_logger.address","r") as file:
+        address = file.read()
+    contract_logger = boa.load_partial("src/Logger.vy").at(address)
 
     if conn is not None:
         total_cached_rec = conn.execute("""
