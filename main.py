@@ -206,15 +206,7 @@ def logout():
 @app.route('/')
 def dashboard():
     if current_user.is_authenticated:
-        try:
-            out = get_system_wide_id_and_role(current_user.id)
-            if out:
-                if out[1] == roles.ADMIN:
-                    return redirect(url_for("load_admin_page"))
-                else:
-                    return redirect(url_for("get_all_user_information"))
-        except Exception as e:
-            print("Error while getting role:", repr(e))
+        return redirect(url_for('get_all_user_information'))#Filler: should redirect to individual user information once we the test data anymore
     else:
         return redirect(url_for('login'))
 
