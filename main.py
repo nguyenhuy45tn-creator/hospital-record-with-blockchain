@@ -236,6 +236,26 @@ def change_password(systemwide_id):
                         requestee_username=current_user.id,
                         systemwide_id=systemwide_id,
                         new_password=new_password)
+app.route('/my-health-records')
+@login_required
+def get_health_records():
+    try:
+        username = current_user.username
+        swid = UUID(current_user.swid)
+
+        
+        record = {
+            "record_id": "r123",
+            "patient_user_id": username,
+            "last_updated_at": "2025-06-20T10:00:00",
+            "last_updated_by_user_id": username,
+            "record_data": "Sample healthcare data for testing"
+        }
+
+        return render_template("healthcare_records.html", records=[record], username=username)
+
+    except Exception as e:
+        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
 def moccasin_main():
     initialize_database()
