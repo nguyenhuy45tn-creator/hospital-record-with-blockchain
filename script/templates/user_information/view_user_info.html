@@ -2,39 +2,6 @@
 
 {% block IndividualInfo %}
 
-<!-- <div class="container"> 
-    <div id="user-basic-info">
-        {% for column in df.columns%}
-            {% if column in ["full_name","address"] %}
-            <div class="mb-3 row">
-                <div class="col-sm-2" >
-                {{ column }}:
-                </div>
-                <div class="col-sm-8" >
-                    {{ df[column].values[0] }}
-                </div>
-            </div>
-            {% elif column in ["updated_by_user_id"]%}
-                
-            {% else %}
-            <div class="mb-3 row">
-                <div class="col-sm-2" >
-                {{ column }}:
-                </div>
-                <div class="col-sm-8" >
-                    {{ df[column].values[0] }}
-                </div>
-            </div>
-            {% endif %}
-        {% endfor %}
-        <button 
-            hx-get="/edit_user_information/{{user_id}}" 
-            hx-target="#user-basic-info"
-            hx-swap="outerHTML"> 
-                Edit
-        </button>
-    </div>
-</div> -->
 
 <section class="resume-section" id="patient-info">
     <div class="resume-section-content">
@@ -165,5 +132,13 @@
     </div>
 </section>
 
+<section class="resume-section" 
+id="healthcare"
+hx-get="/my-health-records" 
+hx-target="#loader"
+hx-swap="outerHTML"
+hx-trigger="load">
+    <div id="loader"></div>
+</section>
 
 {%endblock%}

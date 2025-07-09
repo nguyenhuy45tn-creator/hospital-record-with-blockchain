@@ -247,19 +247,18 @@ def change_password(systemwide_id):
                         requestee_username=current_user.id,
                         systemwide_id=systemwide_id,
                         new_password=new_password)
+from flask import render_template
+from flask_login import login_required, current_user
+from script.db_connection import get_health_records, get_system_wide_id_and_role
+
 @app.route('/my-health-records', methods=['GET'])
 @login_required
 def get_my_healthcare_records():
-    from script.db_connection import get_health_records
-
     try:
         username = current_user.id
         swid, _ = get_system_wide_id_and_role(username)
 
-        records = get_health_records(
-            requestee_username=username,
-            patient_swid=swid
-        )
+        records = get_health_records(requestee_username=username, patient_swid=swid)
 
         formatted_records = [{
             "record_id": r.record_id,
@@ -268,8 +267,8 @@ def get_my_healthcare_records():
             "last_updated_by_user_id": r.last_updated_by_user_id,
             "record_data": r.record_data
         } for r in records]
-         
-        return render_template("healthcare_record.html", records=formatted_records, username=username)
+
+        return render_template("healthcare_record.html", records=formatted_records)
 
     except Exception as e:
         print(f"[ERROR] Failed to fetch healthcare records: {str(e)}")

@@ -1,0 +1,59 @@
+
+<div class="container mt-5">
+    <h2 class="mb-4">🩺 My Health Records</h2>
+
+    {% if records %}
+        {% for record in records %}
+            <div class="card mb-4">
+                <div class="card-body">
+                    <p><strong>Record ID:</strong> {{ record.record_id }}</p>
+                    <p><strong>Patient User ID:</strong> {{ record.patient_user_id }}</p>
+                    <p><strong>Last Updated:</strong> {{ record.last_updated_at }}</p>
+                    <p><strong>Updated By:</strong> {{ record.last_updated_by_user_id }}</p>
+
+                    <h5>Medical Info:</h5>
+                    <ul>
+                        <li><strong>Allergies:</strong> {{ record.record_data.allergies }}</li>
+                        <li><strong>Conditions:</strong> {{ record.record_data.conditions }}</li>
+                        <li><strong>Medications:</strong>
+                            <ul>
+                                {% for med in record.record_data.medications %}
+                                    <li>{{ med.name }} - {{ med.dosage }} - {{ med.frequency }}</li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                        <li><strong>Notes:</strong> {{ record.record_data.notes }}</li>
+                    </ul>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-warning">No healthcare records found.</div>
+    {% endif %}
+
+    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger mt-3">Logout</a>
+</div>
+   
+       
+
+<hr>
+<h3>Add New Health Record</h3>
+<form method="post" action="{{ url_for('add_healthcare_record') }}">
+  <div class="mb-3">
+    <label for="allergies" class="form-label">Allergies (comma-separated)</label>
+    <input type="text" class="form-control" id="allergies" name="allergies" required>
+  </div>
+  <div class="mb-3">
+    <label for="conditions" class="form-label">Conditions (comma-separated)</label>
+    <input type="text" class="form-control" id="conditions" name="conditions" required>
+  </div>
+  <div class="mb-3">
+    <label for="medications" class="form-label">Medications (format: Name|Dosage|Frequency, separate with semicolon)</label>
+    <input type="text" class="form-control" id="medications" name="medications" placeholder="e.g. Lisinopril|10mg|daily;Paracetamol|500mg|2xday">
+  </div>
+  <div class="mb-3">
+    <label for="notes" class="form-label">Notes</label>
+    <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+  </div>
+  <button type="submit" class="btn btn-primary">Submit Record</button>
+</form>
