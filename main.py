@@ -236,26 +236,37 @@ def change_password(systemwide_id):
                         requestee_username=current_user.id,
                         systemwide_id=systemwide_id,
                         new_password=new_password)
-app.route('/my-health-records')
+@app.route('/my-health-records', methods=['GET'])
 @login_required
-def get_health_records():
+def get_my_healthcare_records():
+    from script.db_connection import get_health_records
+
     try:
-        username = current_user.username
-        swid = UUID(current_user.swid)
+        username = current_user.id
+        swid, _ = get_system_wide_id_and_role(username)
 
-        
-        record = {
-            "record_id": "r123",
-            "patient_user_id": username,
-            "last_updated_at": "2025-06-20T10:00:00",
-            "last_updated_by_user_id": username,
-            "record_data": "Sample healthcare data for testing"
-        }
+        records = get_health_records(
+            requestee_username=username,
+            patient_swid=swid
+        )
 
-        return render_template("healthcare_records.html", records=[record], username=username)
+        # ✅ DEBUG: Print number of records retrieved
+        print(f"[DEBUG] Retrieved {len(records)} records for username: {username}, swid: {swid}")
+
+        # Format the records for Jinja2 rendering
+        formatted_records = [{
+            "record_id": r.record_id,
+            "patient_user_id": r.patient_user_id,
+            "last_updated_at": r.last_updated_at.isoformat() if r.last_updated_at else "N/A",
+            "last_updated_by_user_id": r.last_updated_by_user_id,
+            "record_data": r.record_data
+        } for r in records]
+
+        return render_template("healthcare_record.html", records=formatted_records, username=username)
 
     except Exception as e:
-        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+        print(f"[ERROR] Failed to fetch healthcare records: {str(e)}")
+        return f"<h3>Error fetching healthcare records: {str(e)}</h3>", 500
 
 def moccasin_main():
     initialize_database()
