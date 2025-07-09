@@ -33,6 +33,8 @@ from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, 
 from os import environ
 
 # Global variables for engine and role_right_checker
+engine = None
+
 
 
 
@@ -195,8 +197,6 @@ def initialize_database():
         print("Database engine initialized and tables created.")
     return engine
 
-DATABASE_URL = environ.get('DATABASE_URL', "postgresql://postgres:postgres@localhost:5432/sampledb")
-engine = create_engine(DATABASE_URL) # Initialize engine as None at module level
 
 def _get_requestee_user_and_role(session, requestee_username: str):
     """Helper to fetch the requestee user and their role name."""

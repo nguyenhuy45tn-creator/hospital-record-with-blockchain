@@ -20,6 +20,8 @@ from script.db_connection import add_user
 from script.db_connection import get_system_wide_id_and_role
 import script.db_connection 
 
+initialize_database()
+
 #cusotm import
 from script.renderer import render_add_user_form
 from script.renderer import render_view_user_information
@@ -251,14 +253,12 @@ from flask import render_template
 from flask_login import login_required, current_user
 from script.db_connection import get_health_records, get_system_wide_id_and_role
 
-@app.route('/my-health-records', methods=['GET'])
+@app.route('/health-records/<systemwide_id>', methods=['GET'])
 @login_required
-def get_my_healthcare_records():
+def get_healthcare_records(systemwide_id):
     try:
         username = current_user.id
-        swid, _ = get_system_wide_id_and_role(username)
-
-        records = get_health_records(requestee_username=username, patient_swid=swid)
+        records = get_health_records(requestee_username=username, patient_swid=systemwide_id)
 
         formatted_records = [{
             "record_id": r.record_id,
