@@ -16,9 +16,9 @@ def deploy_logger():
 def moccasin_main():
     deploy_logger()
 
-cache_folder = Path("/cache")
+cache_folder = Path("cache")
+cache_folder.mkdir(exist_ok=True)
 cache_file = cache_folder/"contract_cache"
 
 if not cache_file.exists():
     deploy()
-

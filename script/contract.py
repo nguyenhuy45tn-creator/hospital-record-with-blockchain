@@ -20,6 +20,9 @@ def create_role_right_checker() -> RoleRightChecker:
 
     boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
     
+    cache_dir = Path("cache")
+    cache_dir.mkdir(exist_ok=True)
+
     if Path("cache/role_right_checker.address").exists():
         with open("cache/role_right_checker.address","r") as file:
             address = file.read()
