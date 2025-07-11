@@ -33,10 +33,10 @@ from script.renderer import render_added_user
 from script.renderer import render_view_all_user
 from script.renderer import render_user_table
 from script.renderer import render_logs_table
-from script.renderer import render_change_password_form
+from script.renderer import render_change_password_form 
 from script.renderer import render_change_password_result
-
-from script.contract_logger import _logger
+from script.renderer import render_login_page
+from script.renderer import render_permission_denied
 
 app = Flask(__name__, template_folder="script/templates")
 app.secret_key = "super secret string"
@@ -75,28 +75,8 @@ def load_user(user_id):
     return None
 
 # Simple HTML form template
-login_template_html = '''
-<!doctype html>
-<title>Login</title>
-<h2>Login Page</h2>
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul class=flashes>
-    {% for message in messages %}
-      <li style="color:red;">{{ message }}</li>
-    {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
-<form method="POST">
-    Username: <input type="text" name="username" required><br><br>
-    Password: <input type="password" name="password" required><br><br>
-    <input type="submit" value="Login">
-</form>
-<p><a href="{{ url_for('dashboard') }}">Go to Dashboard</a></p>
-'''
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST']) 
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
@@ -114,18 +94,17 @@ def login():
             return redirect(request.args.get('next') or url_for('dashboard'))
         else:
             flash('Invalid username or password.')
-
-    return render_template_string(login_template_html)
+    return render_login_page() 
 
 @app.route("/permission_error")
 def permission_error():
-    return "You don't ahve enough permission to access this page"
+    return render_permission_denied()
 
 @app.route("/admin")
 @login_required
 def load_admin_page():
 
-    if not check_is_admin(current_user.id):
+    if not check_is_admin(current_user.id): 
         return redirect(url_for("permission_error"))
     
     return render_view_all_user(current_user.id)
@@ -133,7 +112,7 @@ def load_admin_page():
 
 def check_is_admin(username) -> bool:
     try:
-        out = get_system_wide_id_and_role(current_user.id)
+        out = get_system_wide_id_and_role(username)
         if out:
             if out[1] == roles.ADMIN:
                 return True
@@ -170,7 +149,7 @@ def add_user():
             raise e
 
 @app.route("/admin/logs")
-@login_required
+@login_required 
 def load_logs_table():
     if not check_is_admin(current_user.id):
         return redirect(url_for("permission_error"))
@@ -218,6 +197,8 @@ def logout():
 @app.route('/')
 def dashboard():
     if current_user.is_authenticated:
+        if check_is_admin(current_user.id):
+            return redirect(url_for('load_admin_page'))
         return redirect(url_for('get_all_user_information'))#Filler: should redirect to individual user information once we the test data anymore
     else:
         return redirect(url_for('login'))

@@ -10,3 +10,4 @@ flask-admin==2.0.0a4
 pandas
 Flask-WTF
 ./titanoboa
+web3

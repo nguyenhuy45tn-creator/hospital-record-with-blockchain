@@ -8,15 +8,55 @@ from datetime import datetime
 import json
 from script.interface import Logger, Log
 from script.deploy import deploy
+import sqlite3
 import boa
+from pathlib import Path
+from web3 import Web3
+
 
 # Get the latest counter of the Counter contract
 boa.set_network_env("http://127.0.0.1:8545")
 boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
-contract_logger = boa.load_partial("src/Logger.vy").at("0x0C4340cD9aF4C01E65A1495408Acd02EF76D7637")
 
+if not Path("cache/contract_logger.address").exists():
+    contract_logger = boa.load("src/Logger.vy")
+    with open("cache/contract_logger.address","w") as file:
+        address = file.write(contract_logger.address)
+else:
+    with open("cache/contract_logger.address","r") as file:
+            address = file.read()
+    contract_logger = boa.load_partial("src/Logger.vy").at(address)
 
 _logger = Logger(contract_logger)
+
+cached_log = Path("cache")/"cached_log.db"
+
+conn = None
+if sqlite3.threadsafety == 3:
+    conn = sqlite3.connect(
+        str(cached_log.absolute()), 
+        check_same_thread=False)
+
+
+#initialize cache
+if conn is not None:
+    conn.execute("""
+        DROP TABLE IF EXISTS cached_logs;
+    """)
+    conn.execute("""
+            CREATE TABLE IF NOT EXISTS cached_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                log_mss VARCHAR(1000)
+            );""")
+    for i in range(contract_logger.get_length()):
+            log_mss = contract_logger.log_db(i)
+            conn.execute("""
+                INSERT INTO cached_logs(log_mss) VALUES (?)
+                """, (log_mss,)
+                )
+    conn.commit()
+
+
 
 def json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
@@ -56,13 +96,19 @@ def logged(logger=_logger):
                           result = "Success",
                           args=args_to_log, 
                           kwargs=kwargs_to_log)
-                logger.add_log(
-                        json.dumps(
+                log_mss = json.dumps(
                             log.__dict__,
                             indent=4,
                             default=json_serial # Use the custom serializer
                             )
+                logger.add_log(
+                        log_mss
                     )
+                conn.execute("""
+                INSERT INTO cached_logs(log_mss) VALUES (?)
+                """, (log_mss,)
+                )
+
                 return value
             except Exception as e:
                 log = Log(func, 
@@ -73,13 +119,19 @@ def logged(logger=_logger):
                           output = repr(e), 
                           args=args_to_log, 
                           kwargs=kwargs_to_log)
-                logger.add_log(
-                        json.dumps(
+                log_mss = json.dumps(
                             log.__dict__,
                             indent=4,
                             default=json_serial # Use the custom serializer
                             )
+                logger.add_log(
+                    log_mss
                     )
+                
+                conn.execute("""
+                INSERT INTO cached_logs(log_mss) VALUES (?)
+                """, (log_mss,)
+                )
                 raise e
             print("----------",log.output)
            
