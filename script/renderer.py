@@ -1,7 +1,7 @@
 import pandas as pd
 from eth_account import Account
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from flask import url_for, jsonify, Request
+from flask import url_for, jsonify, Request, get_flashed_messages
 from flask import redirect
 from wtforms import Form, StringField, PasswordField, SelectField, validators
 import json
@@ -17,10 +17,10 @@ from script.db_connection import add_user
 from script.db_connection import get_all_roles
 from script.db_connection import change_password
 
-from script.contract_logger import logged, _logger, contract_logger
+from script.contract_logger import logged, contract_logger, conn
 
 from script import roles
-
+from web3 import Web3
 #logger
 from script.contract_logger import logged
 
@@ -78,6 +78,10 @@ def render_edit_user_information(requestee_id, system_wide_id) -> str:
                            sys_wide_id=str(user.system_wide_identifier),
                            address=str(user.address),
                            url_for=url_for)
+@logged()
+def render_login_page():
+    template = env.get_template("login_page.html")
+    return template.render(url_for=url_for, get_flashed_messages=get_flashed_messages)
 
 def render_change_password_form(systemwide_id):
     template = env.get_template("user_information/change_password_form.html")
@@ -149,7 +153,11 @@ def render_user_table(requestee_username):
         return content
     except Exception as e:
         print(repr(e))
-    
+
+@logged()
+def render_permission_denied():
+    template = env.get_template("permission_error.html")
+    return template.render(url_for=url_for)
 
 @logged()
 def render_view_all_user(requestee_username):
@@ -177,13 +185,34 @@ class CreateUserForm(Form):
 
 @logged()
 def render_logs_table(requestee_username):
-    boa.env.add_account(Account.from_key("0x9db892b6ddbdc723db979a80e68a93d4649a3c416f5ce1c145f358b3b895880f"))
-    with boa.fork("http://127.0.0.1:8545", allow_dirty=True):
-        contract_logger = boa.load_partial("src/Logger.vy").at("0x0C4340cD9aF4C01E65A1495408Acd02EF76D7637")
-        log_length = contract_logger.get_length() 
-        logs = []
-        for i in range(1, log_length):
-            logs.append(json.loads(contract_logger.log_db(i)))
+    
+    
+    w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
+    if not w3.is_connected():
+        raise ConnectionAbortedError("No provider found")
+    
+    weth_contract = w3.eth.contract(
+        address=contract_logger.address, 
+        abi=contract_logger.abi)
+    
+    logs = weth_contract.events.AppLog().get_logs(from_block=w3.eth.block_number)
+
+    if conn is not None:
+        total_cached_rec = conn.execute("""
+            SELECT log_mss
+            FROM cached_logs
+        """).fetchall()
+
+    print(f"logs is {logs[-1]}")
+    if len(total_cached_rec) == logs[0].args.value:
+        logs = [json.loads(mss[0]) for mss in total_cached_rec]
+    else:
+        with boa.fork("http://127.0.0.1:8545", allow_dirty=True):
+            log_length = contract_logger.get_length() 
+            logs = []
+            for i in range(1, log_length):
+                logs.append(json.loads(contract_logger.log_db(i)))
+
     table=pd.DataFrame(logs).sort_values("ts", ascending=False)
     return table.style.set_table_attributes('class="table table-hover" hx-trigger="every 3s" hx-get="/admin/logs"').to_html()
 

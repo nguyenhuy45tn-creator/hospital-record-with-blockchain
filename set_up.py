@@ -41,26 +41,3 @@ user_right_checker.add_role_w_right(role_name=ADMIN, right= READ_PATIENT_HEALTHC
 user_right_checker.add_role_w_right(role_name=ADMIN, right= WRITE_PATIENT_HEALTHCARE_RECORD_DATA)
 user_right_checker.add_role_w_right(role_name=ADMIN, right= WRITE_PATIENT_BASIC_DATA)
 print(user_right_checker.check_right(PATIENT, READ_PATIENT_BASIC_DATA))
-
-# with sqlite3.connect("deployment_information/deployments.db") as conn:
-#     conn.execute("""
-        
-#         CREATE TABLE IF NOT EXISTS deployments(
-#             deployment_id integer primary key autoincrement,
-#             session_id text,
-#             contract_address text,
-#             contract_name text,
-#             filename text,
-#             rpc text,
-#             deployer text,
-#             tx_hash text,
-#             broadcast_ts real,
-#             tx_dict text,
-#             receipt_dict text,
-#             source_code text,
-#             abi text
-#         );""")
-# with set_deployments_db(DeploymentsDB("deployment_information/deployments.db")):
-#     contract_logger = boa.load("src/Logger.vy")
-
-# print(contract_logger.address)
