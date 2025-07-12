@@ -186,7 +186,6 @@ class CreateUserForm(Form):
 @logged()
 def render_logs_table(requestee_username):
     
-    
     w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
     if not w3.is_connected():
         raise ConnectionAbortedError("No provider found")
