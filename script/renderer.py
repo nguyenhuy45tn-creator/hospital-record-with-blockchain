@@ -180,7 +180,7 @@ class CreateUserForm(Form):
                                     validators.InputRequired(), 
                                     validators.Regexp(regex="^[A-Za-z0-9_. ]+$")
                                 ],
-                                default="This hosital")
+                                default="This hospital")
     role_for_new_user = SelectField(label="Roles", choices=get_all_roles())
 
 @logged()
