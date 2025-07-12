@@ -335,6 +335,40 @@ def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
         records = session.execute(query).scalars().all()
     return records
 
+def get_health_records_by_id(requestee_username: str, record_id:str):
+    """
+    Retrieves the healthcare records associated with a specific user.
+    Access control is performed based on whether the requestee is viewing their own
+    records or another patient's records.
+
+    First finds the user by their system-wide identifier, then finds the
+    healthcare records linked to that user's primary key ID. A user can
+    have multiple healthcare records.
+    This function uses global 'engine' for database sessions and global 'role_right_checker' for access control.
+
+    Args:
+        requestee_username (str): The username of the user making the request.
+        patient_swid (uuid.UUID): The unique UUID identifier of the patient whose records are needed.
+
+    Returns:
+        list[HealthcareRecord]: A list of HealthcareRecord objects associated with the user.
+                                Returns an empty list if the user is not found or has no records.
+
+    Raises:
+        PermissionError: If the requestee does not have permission to view these health records.
+    """
+    with Session(engine) as session:
+        role_right_checker = create_role_right_checker()
+        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        # record_id = uuid.UUID(int=record_id)
+
+        _check_access(role_right_checker, requestee_role_name, WRITE_PATIENT_HEALTHCARE_RECORD_DATA, f"not allow to edit healthcare record")
+
+
+        query = select(HealthcareRecord).where(HealthcareRecord.record_id == record_id)
+        record = session.execute(query).scalars().one_or_none()
+    return record
+
 @logged()
 def add_user(requestee_username: str, full_name: str, address: str, hospital_designation: str, role_for_new_user: str):
     """
@@ -431,8 +465,9 @@ def add_health_record(requestee_username: str, patient_user_id:int, record_data:
         new_record = HealthcareRecord(patient_user_id=patient_user_id, record_data=record_data, last_updated_by_user_id=requestee_user.user_id)
         session.add(new_record)
         session.commit()
-        return
+        return new_record.record_id
 
+@logged()
 def update_health_record(requestee_username: str, record_id:int, record_data:dict):
     """
     Updates an existing healthcare record.
@@ -536,7 +571,8 @@ def add_role(requestee_username: str, role_name_to_add:str, description:str):
         new_role = Role(role_name=role_name_to_add, description=description)
         session.add(new_role)
         session.commit()
-    
+
+@logged()   
 def change_password(requestee_username: str, target_sys_id:str, new_password:str):
     """
     Changes the password for a given user.

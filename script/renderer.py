@@ -16,6 +16,8 @@ from script.db_connection import search_users
 from script.db_connection import add_user
 from script.db_connection import get_all_roles
 from script.db_connection import change_password
+from script.db_connection import update_health_record
+from script.db_connection import get_health_records_by_id
 
 from script.contract_logger import logged, contract_logger, conn
 
@@ -227,6 +229,68 @@ def render_added_user(requestee_username, request: Request):
     return template.render(new_username = username, 
                            new_password=password_plain,
                            form=form)
+
+@logged()
+def render_update_health_record_form(username, record_id):
+        record = get_health_records_by_id(
+            requestee_username=username,
+            record_id=record_id)
+        r=record
+        formatted_record = {
+            "record_id": r.record_id,
+            "patient_user_id": r.patient_user_id,
+            "last_updated_at": r.last_updated_at.isoformat() if r.last_updated_at else "N/A",
+            "last_updated_by_user_id": r.last_updated_by_user_id,
+            "record_data": r.record_data
+        }
+        template = env.get_template("healthcare_record/modify-record-form.html")
+        return template.render(record=record, enumerate=enumerate)
+
+
+def render_updated_health_record(username, record_id, request:Request):
+    form = request.form.to_dict()
+    allergies = form.get("allergies")
+    conditions= form.get("conditions")
+    medications = form.get("medications")
+    
+    update_health_record(requestee_username=username,
+                         record_id=record_id,
+                         record_data=dict(allergies=allergies,
+                                          conditions=conditions,
+                                          medications=medications,
+                                          notes=form.get("notes")))
+    
+    record = get_health_records_by_id(requestee_username=username, 
+                                       record_id=record_id)
+
+    # r = record
+    # formatted_records = {
+    #     "record_id": r.record_id,
+    #     "patient_user_id": r.patient_user_id,
+    #     "last_updated_at": r.last_updated_at.isoformat() if r.last_updated_at else "N/A",
+    #     "last_updated_by_user_id": r.last_updated_by_user_id,
+    #     "record_data": r.record_data
+    # }
+
+    # template = env.get_template("healthcare_record/health_card.html")
+    return render_health_record_by_id(username=username,
+                                      record_id=record_id)
+
+def render_health_record_by_id(username, record_id):
+    record = get_health_records_by_id(requestee_username=username, 
+                                       record_id=record_id)
+
+    r = record
+    formatted_records = {
+        "record_id": r.record_id,
+        "patient_user_id": r.patient_user_id,
+        "last_updated_at": r.last_updated_at.isoformat() if r.last_updated_at else "N/A",
+        "last_updated_by_user_id": r.last_updated_by_user_id,
+        "record_data": r.record_data
+    }
+
+    template = env.get_template("healthcare_record/health_card.html")
+    return template.render(record=record)
 
 def render_add_user_form():
     form = CreateUserForm()

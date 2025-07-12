@@ -2,7 +2,7 @@ from flask import Flask, render_template_string, request, redirect, url_for, fla
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from pathlib import Path
 import os
-
+import json
 from script import roles
 
 # db workflow
@@ -10,6 +10,7 @@ from script.db_connection import initialize_database, check_password
 from script.db_connection import populate_example_data, Session
 from script.db_connection import Login as DBLogin
 from script.db_connection import get_system_wide_id_and_role
+from script.db_connection import add_health_record
 import script.db_connection 
 
 # Initialize DB before other imports that need it
@@ -31,6 +32,9 @@ from script.renderer import render_change_password_form
 from script.renderer import render_change_password_result
 from script.renderer import render_login_page
 from script.renderer import render_permission_denied
+from script.renderer import render_update_health_record_form
+from script.renderer import render_updated_health_record
+from script.renderer import render_health_record_by_id
 
 app = Flask(__name__, template_folder="script/templates")
 app.secret_key = os.environ.get("SECRET_KEY", "super secret string")
@@ -222,6 +226,7 @@ def change_password(systemwide_id):
                         requestee_username=current_user.id,
                         systemwide_id=systemwide_id,
                         new_password=new_password)
+        
 from flask import render_template
 from flask_login import login_required, current_user
 from script.db_connection import get_health_records, get_system_wide_id_and_role
@@ -241,63 +246,37 @@ def get_healthcare_records(systemwide_id):
             "record_data": r.record_data
         } for r in records]
 
-        return render_template("healthcare_record.html", records=formatted_records)
+        return render_template("healthcare_record/healthcare_record.html", records=formatted_records)
 
     except Exception as e:
         print(f"[ERROR] Failed to fetch healthcare records: {str(e)}")
         return f"<h3>Error fetching healthcare records: {str(e)}</h3>", 500
 
-@app.route('/add-record', methods=['POST'])
+@app.route('/edit-health-record/<record_id>', methods=['GET','POST'])
 @login_required
-def add_healthcare_record():
-    try:
-        from script.db_connection import add_health_record, get_system_wide_id_and_role
-        username = current_user.id
-        swid, _ = get_system_wide_id_and_role(username)
+def modify_healthcare_record(record_id):
+    if request.method == "GET": 
+        print("triggered")
+        return render_update_health_record_form(current_user.id, record_id)
+    if request.method == "POST":
+        return render_updated_health_record(current_user.id, record_id, request)
 
-        from script.db_connection import get_user_id_by_swid
-        with Session(engine) as session:
-            patient_user = session.query(User).filter(User.system_wide_identifier == swid).first()
-            if not patient_user:
-                return "Patient not found", 404
 
-            # Parse form data
-            allergies = request.form.get('allergies', '').split(',')
-            conditions = request.form.get('conditions', '').split(',')
-            raw_meds = request.form.get('medications', '')
-            notes = request.form.get('notes', '')
+@app.route('/add-record/<patient_user_id>', methods=['POST'])
+@login_required
+def add_healthcare_record(patient_user_id):
 
-            medications = []
-            for med in raw_meds.split(';'):
-                parts = med.strip().split('|')
-                if len(parts) == 3:
-                    medications.append({
-                        "name": parts[0].strip(),
-                        "dosage": parts[1].strip(),
-                        "frequency": parts[2].strip()
-                    })
-
-            record_data = {
-                "allergies": [a.strip() for a in allergies if a.strip()],
-                "conditions": [c.strip() for c in conditions if c.strip()],
-                "medications": medications,
-                "notes": notes.strip()
-            }
-
-            add_health_record(username, patient_user_id=patient_user.user_id, record_data=record_data)
-
-        return redirect(url_for('get_my_healthcare_records'))
-
-    except Exception as e:
-        print(f"Error adding health record: {e}")
-        return f"<h4>Error: {e}</h4>", 500
+    username = current_user.id
+    record_data = request.form.to_dict()
+    new_rec_id = add_health_record(username, patient_sws=patient_user_id, record_data=record_data)
+    return render_health_record_by_id(current_user.id, new_rec_id)
 
 def moccasin_main():
     initialize_database()
     populate_example_data()
 
     is_debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
-    app.run(debug=is_debug_mode, 
+    app.run(debug=True, 
             threaded=True,
             host='0.0.0.0',
             port=5050

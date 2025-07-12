@@ -1,0 +1,28 @@
+<div class="card mb-4" id="record-{{ record.record_id }}">
+<div class="card-header">
+    <button hx-get="/edit-health-record/{{ record.record_id }}"
+            hx-target="#record-{{ record.record_id }}"
+            hx-swap="outerHTML">
+    <strong>Edit</strong>
+    </button>
+</div>
+<div class="card-body">
+    <p><strong>Record ID:</strong> {{ record.record_id }}</p>
+    <p><strong>Patient User ID:</strong> {{ record.patient_user_id }}</p>
+    <p><strong>Last Updated:</strong> {{ record.last_updated_at }}</p>
+    <p><strong>Updated By:</strong> {{ record.last_updated_by_user_id }}</p>
+
+    <h5>Medical Info:</h5>
+    <ul>
+        <li><strong>Allergies:</strong> {{ record.record_data.allergies }}</li>
+        <li><strong>Conditions:</strong> {{ record.record_data.conditions }}</li>
+        <li><strong>Medications:</strong>
+            {{ record.record_data.medications }}
+        </li>
+        <li><strong>Notes:</strong> {{ record.record_data.notes }}</li>
+    </ul>
+</div>
+</div>
+
+<!-- hidden html to add new record -->
+<div id="newly-added-record"></div>

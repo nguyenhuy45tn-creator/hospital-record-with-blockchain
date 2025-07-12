@@ -4,7 +4,14 @@
 
     {% if records %}
         {% for record in records %}
-            <div class="card mb-4">
+            <div class="card mb-4" id="record-{{ record.record_id }}">
+                <div class="card-header">
+                  <button hx-get="/edit-health-record/{{ record.record_id }}"
+                          hx-target="#record-{{ record.record_id }}"
+                          hx-swap="outerHTML">
+                    <strong>Edit</strong>
+                  </button>
+                </div>
                 <div class="card-body">
                     <p><strong>Record ID:</strong> {{ record.record_id }}</p>
                     <p><strong>Patient User ID:</strong> {{ record.patient_user_id }}</p>
@@ -12,15 +19,20 @@
                     <p><strong>Updated By:</strong> {{ record.last_updated_by_user_id }}</p>
 
                     <h5>Medical Info:</h5>
-                    <ul>
-                        <li><strong>Allergies:</strong> {{ record.record_data.allergies }}</li>
-                        <li><strong>Conditions:</strong> {{ record.record_data.conditions }}</li>
-                        <li><strong>Medications:</strong>
-                            <ul>
-                                {% for med in record.record_data.medications %}
-                                    <li>{{ med.name }} - {{ med.dosage }} - {{ med.frequency }}</li>
-                                {% endfor %}
-                            </ul>
+                    <ul class="list-group">
+                        <li class="list-group-item">
+                          <strong>Allergies:</strong> 
+                          {{ record.record_data.allergies }}
+                        </li>
+                        <li class="list-group-item">
+                          <strong>Conditions:</strong> 
+                            {{ record.record_data.conditions }}
+                        </li>
+                        <li class="list-group-item">
+                          <strong>Medications:</strong>
+                          <p>
+                            {{ record.record_data.medications }}
+                          <p>
                         </li>
                         <li><strong>Notes:</strong> {{ record.record_data.notes }}</li>
                     </ul>
@@ -31,6 +43,8 @@
         <div class="alert alert-warning">No healthcare records found.</div>
     {% endif %}
 
+    <div id="newly-added-record"></div>
+
     <a href="{{ url_for('logout') }}" class="btn btn-outline-danger mt-3">Logout</a>
 </div>
    
@@ -38,7 +52,10 @@
 
 <hr>
 <h3>Add New Health Record</h3>
-<form method="post" action="{{ url_for('add_healthcare_record') }}">
+<form 
+  hx-post="{{ url_for('add_healthcare_record') }}/{{ record.record_id }}" 
+  hx-target="#newly-added-record" 
+  hx-swap="outerHTML">
   <div class="mb-3">
     <label for="allergies" class="form-label">Allergies (comma-separated)</label>
     <input type="text" class="form-control" id="allergies" name="allergies" required>

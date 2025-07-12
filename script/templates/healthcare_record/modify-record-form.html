@@ -1,0 +1,36 @@
+<div class="card mb-4" id="record-{{ record.record_id }}">
+    <div class="card-body">
+        <p><strong>Record ID:</strong> {{ record.record_id }}</p>
+        <p><strong>Patient User ID:</strong> {{ record.patient_user_id }}</p>
+        <p><strong>Last Updated:</strong> {{ record.last_updated_at }}</p>
+        <p><strong>Updated By:</strong> {{ record.last_updated_by_user_id }}</p>
+
+        <form hx-post="/edit-health-record/{{ record.record_id }}" hx-target="#record-{{ record.record_id }}" hx-swap="outerHTML">
+            <h5>Medical Info:</h5>
+            <ul>
+                <div>
+                    <label><strong>Allergies:</strong></label>
+                    <input type="text" name="allergies" value="{{ record.record_data.allergies }}">
+                </div>
+                
+                <div>
+                    <label><strong>Conditions:</strong></label>
+                    <input type="text" name="conditions" value="{{ record.record_data.conditions }}">
+                </div>
+
+                <li><strong>Medications:</strong>
+                    <textarea name="medications" id="medications">{{ record.record_data.medications }}</textarea>
+                </li>
+                <li><strong>Notes:</strong> 
+                    <textarea name="notes" id="notes">{{ record.record_data.notes }}</textarea>
+                </li>
+            </ul>
+            <button 
+                type="submit">
+                    Submit
+            </button>
+        </form>
+
+        
+    </div>
+</div>
