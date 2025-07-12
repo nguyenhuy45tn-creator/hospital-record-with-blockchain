@@ -5,12 +5,16 @@ import os
 import json
 from script import roles
 
+from flask import render_template
+from flask_login import login_required, current_user
+
 # db workflow
 from script.db_connection import initialize_database, check_password
 from script.db_connection import populate_example_data, Session
 from script.db_connection import Login as DBLogin
 from script.db_connection import get_system_wide_id_and_role
 from script.db_connection import add_health_record
+from script.db_connection import get_health_records_and_pid
 import script.db_connection 
 
 # Initialize DB before other imports that need it
@@ -35,6 +39,7 @@ from script.renderer import render_permission_denied
 from script.renderer import render_update_health_record_form
 from script.renderer import render_updated_health_record
 from script.renderer import render_health_record_by_id
+
 
 app = Flask(__name__, template_folder="script/templates")
 app.secret_key = os.environ.get("SECRET_KEY", "super secret string")
@@ -226,17 +231,13 @@ def change_password(systemwide_id):
                         requestee_username=current_user.id,
                         systemwide_id=systemwide_id,
                         new_password=new_password)
-        
-from flask import render_template
-from flask_login import login_required, current_user
-from script.db_connection import get_health_records, get_system_wide_id_and_role
 
 @app.route('/health-records/<systemwide_id>', methods=['GET'])
 @login_required
 def get_healthcare_records(systemwide_id):
     try:
         username = current_user.id
-        records = get_health_records(requestee_username=username, patient_swid=systemwide_id)
+        records, patient_id = get_health_records_and_pid(requestee_username=username, patient_swid=systemwide_id)
 
         formatted_records = [{
             "record_id": r.record_id,
@@ -246,7 +247,9 @@ def get_healthcare_records(systemwide_id):
             "record_data": r.record_data
         } for r in records]
 
-        return render_template("healthcare_record/healthcare_record.html", records=formatted_records)
+        return render_template("healthcare_record/healthcare_record.html", 
+                               records=formatted_records,
+                               patient_id = patient_id)
 
     except Exception as e:
         print(f"[ERROR] Failed to fetch healthcare records: {str(e)}")
@@ -268,7 +271,7 @@ def add_healthcare_record(patient_user_id):
 
     username = current_user.id
     record_data = request.form.to_dict()
-    new_rec_id = add_health_record(username, patient_sws=patient_user_id, record_data=record_data)
+    new_rec_id = add_health_record(username, patient_user_id=int(patient_user_id), record_data=record_data)
     return render_health_record_by_id(current_user.id, new_rec_id)
 
 def moccasin_main():

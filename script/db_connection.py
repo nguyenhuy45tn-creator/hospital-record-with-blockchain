@@ -295,7 +295,7 @@ def get_all_roles(): #no validate, not public endpoint
     return output
 
 
-def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
+def get_health_records_and_pid(requestee_username: str, patient_swid:uuid.UUID):
     """
     Retrieves the healthcare records associated with a specific user.
     Access control is performed based on whether the requestee is viewing their own
@@ -329,11 +329,9 @@ def get_health_records(requestee_username: str, patient_swid:uuid.UUID):
         if not patient_user:
             raise ValueError(f"Patient with SWID '{patient_swid}' not found.")
 
-
-
         query = select(HealthcareRecord).where(HealthcareRecord.patient_user_id == patient_user.user_id)
         records = session.execute(query).scalars().all()
-    return records
+    return records, patient_user.user_id
 
 def get_health_records_by_id(requestee_username: str, record_id:str):
     """

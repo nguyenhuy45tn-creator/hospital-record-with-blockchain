@@ -53,7 +53,7 @@
 <hr>
 <h3>Add New Health Record</h3>
 <form 
-  hx-post="{{ url_for('add_healthcare_record') }}/{{ record.record_id }}" 
+  hx-post="/add-record/{{ patient_id }}" 
   hx-target="#newly-added-record" 
   hx-swap="outerHTML">
   <div class="mb-3">
