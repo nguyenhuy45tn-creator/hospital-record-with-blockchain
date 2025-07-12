@@ -1,13 +1,7 @@
-from flask import Flask, render_template_string, request, redirect, url_for, flash, render_template, make_response
+from flask import Flask, render_template_string, request, redirect, url_for, flash, make_response
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from flask_admin import Admin, helpers
-from flask import session
-from uuid import uuid4
 from pathlib import Path
 import os
-from jinja2 import Environment
-from sqlalchemy.orm import DeclarativeBase
-import pandas as pd
 
 from script import roles
 
@@ -15,19 +9,17 @@ from script import roles
 from script.db_connection import initialize_database, check_password
 from script.db_connection import populate_example_data, Session
 from script.db_connection import Login as DBLogin
-from script.db_connection import HealthcareRecord, Role
-from script.db_connection import add_user
 from script.db_connection import get_system_wide_id_and_role
 import script.db_connection 
 
+# Initialize DB before other imports that need it
 initialize_database()
 
-#cusotm import
+#custom import
 from script.renderer import render_add_user_form
 from script.renderer import render_view_user_information
 from script.renderer import render_edit_user_information
 from script.renderer import update_rendered_user_information
-from script.renderer import render_test_template
 from script.renderer import render_user_information
 from script.renderer import render_search_page
 from script.renderer import render_search_result
@@ -35,14 +27,13 @@ from script.renderer import render_added_user
 from script.renderer import render_view_all_user
 from script.renderer import render_user_table
 from script.renderer import render_logs_table
-from script.renderer import render_change_password_form
+from script.renderer import render_change_password_form 
 from script.renderer import render_change_password_result
-
-from script.contract_logger import _logger
+from script.renderer import render_login_page
+from script.renderer import render_permission_denied
 
 app = Flask(__name__, template_folder="script/templates")
-app.secret_key = "super secret string"
-app.config['SQLALCHEMY_DATABASE_URI']="postgresql://postgres:postgres@localhost:5432/sampledb"
+app.secret_key = os.environ.get("SECRET_KEY", "super secret string")
 app.config["root_path"]=os.getcwd()
 cwd = Path(os.getcwd())
 app.static_folder = cwd/"script"/"static"
@@ -77,28 +68,8 @@ def load_user(user_id):
     return None
 
 # Simple HTML form template
-login_template_html = '''
-<!doctype html>
-<title>Login</title>
-<h2>Login Page</h2>
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul class=flashes>
-    {% for message in messages %}
-      <li style="color:red;">{{ message }}</li>
-    {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
-<form method="POST">
-    Username: <input type="text" name="username" required><br><br>
-    Password: <input type="password" name="password" required><br><br>
-    <input type="submit" value="Login">
-</form>
-<p><a href="{{ url_for('dashboard') }}">Go to Dashboard</a></p>
-'''
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST']) 
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
@@ -116,18 +87,17 @@ def login():
             return redirect(request.args.get('next') or url_for('dashboard'))
         else:
             flash('Invalid username or password.')
-
-    return render_template_string(login_template_html)
+    return render_login_page() 
 
 @app.route("/permission_error")
 def permission_error():
-    return "You don't ahve enough permission to access this page"
+    return render_permission_denied()
 
 @app.route("/admin")
 @login_required
 def load_admin_page():
 
-    if not check_is_admin(current_user.id):
+    if not check_is_admin(current_user.id): 
         return redirect(url_for("permission_error"))
     
     return render_view_all_user(current_user.id)
@@ -135,7 +105,7 @@ def load_admin_page():
 
 def check_is_admin(username) -> bool:
     try:
-        out = get_system_wide_id_and_role(current_user.id)
+        out = get_system_wide_id_and_role(username)
         if out:
             if out[1] == roles.ADMIN:
                 return True
@@ -172,7 +142,7 @@ def add_user():
             raise e
 
 @app.route("/admin/logs")
-@login_required
+@login_required 
 def load_logs_table():
     if not check_is_admin(current_user.id):
         return redirect(url_for("permission_error"))
@@ -220,6 +190,8 @@ def logout():
 @app.route('/')
 def dashboard():
     if current_user.is_authenticated:
+        if check_is_admin(current_user.id):
+            return redirect(url_for('load_admin_page'))
         return redirect(url_for('get_all_user_information'))#Filler: should redirect to individual user information once we the test data anymore
     else:
         return redirect(url_for('login'))
@@ -237,6 +209,7 @@ def search():
             return "No search phrase found"
 
 @app.route("/change_password/<systemwide_id>", methods=["GET","POST"])
+@login_required
 def change_password(systemwide_id):
 
     if request.method == "GET":
@@ -323,7 +296,8 @@ def moccasin_main():
     initialize_database()
     populate_example_data()
 
-    app.run(debug=True, 
+    is_debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    app.run(debug=is_debug_mode, 
             threaded=True,
             host='0.0.0.0',
             port=5050

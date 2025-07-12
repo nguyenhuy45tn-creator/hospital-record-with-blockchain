@@ -1,7 +1,6 @@
 import uuid
 import string
 from datetime import datetime, timezone
-import pandas as pd
 from sqlalchemy import (
     create_engine,
     Column,
@@ -12,7 +11,6 @@ from sqlalchemy import (
     DateTime,
     LargeBinary,
     select,
-    text,
     cast,
     and_,
     or_
@@ -32,17 +30,13 @@ from script.rights import READ_OWN_PATIENT_BASIC_DATA, READ_PATIENT_BASIC_DATA, 
 
 from os import environ
 
-# Global variables for engine and role_right_checker
-engine = None
-
-
-
-
 # Define the base class for declarative models
 Base = declarative_base()
 # Initialize sqlalchemy-continuum right after Base definition
 # and before any models are defined.
 make_versioned(user_cls=None)
+
+engine = None
 
 class Role(Base):
     __tablename__ = 'roles'
@@ -609,59 +603,67 @@ def check_password(username: str, password_to_check: str) -> bool:
 
         return checkpw(password_to_check.encode('utf-8'), login_entry.hashed_password)
 
-def check_search_access(requestee_username):
+def check_search_access(requestee_username: str):
+    """
+    Verifies if the requesting user has permission to search for other users.
 
+    This function acts as a permission gate before allowing a user search operation.
+    It checks if the requestee's role is granted the `READ_PATIENT_BASIC_DATA` right.
+    If the check fails, it raises an exception, effectively blocking the operation.
+
+    Args:
+        requestee_username (str): The username of the user making the search request.
+
+    Raises:
+        PermissionError: If the requestee's role lacks the necessary rights to search for users.
+        ValueError: If the `requestee_username` does not correspond to an existing user.
+    """
     with Session(engine) as session:
         role_right_checker = create_role_right_checker()
         requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
         print("role name----------", requestee_role_name)
         _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
 
-def search_users(requestee_username, search_phrase:str):
-    with Session(engine) as session:
-        requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
-        role_right_checker = create_role_right_checker()
-        _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "list all users")
+def search_users(requestee_username: str, search_phrase: str):
+    """
+    Searches for users based on a prefix match against their full name or system-wide ID.
 
-        # Use parameterized query to prevent SQL injection
+    This function first verifies that the requesting user has the necessary permissions
+    to perform a search. It then constructs a case-insensitive query to find users
+    whose full name or system-wide ID starts with the given search phrase.
+    Users with the 'admin' role are explicitly excluded from the search results.
+
+    Args:
+        requestee_username (str): The username of the user performing the search.
+        search_phrase (str): The prefix string to match against user names and IDs.
+
+    Returns:
+        list: A list of SQLAlchemy Row objects, each containing a User object that
+              matches the search criteria.
+
+    Raises:
+        PermissionError: If the requestee lacks the required `READ_PATIENT_BASIC_DATA` right.
+        ValueError: If the `requestee_username` does not correspond to an existing user.
+    """
+    with Session(engine) as session:
+        _requestee_user, requestee_role_name = _get_requestee_user_and_role(session, requestee_username)
+        role_right_checker = create_role_right_checker()
+        # Ensure the user has the right to read basic patient data, which is required for searching.
+        _check_access(role_right_checker, requestee_role_name, READ_PATIENT_BASIC_DATA, "search for users")
+
+        # Build a query to find users matching the search phrase.
         query = select(User).where(
             and_(
+                # The search is a case-insensitive prefix match on either the system ID or the full name.
                 or_(
-                    func.left(cast(User.system_wide_identifier, String(36)), len(search_phrase)) == search_phrase,
-                    func.lower(func.left(cast(User.full_name, String(36)), len(search_phrase))) == search_phrase.lower()
+                    func.lower(func.left(cast(User.system_wide_identifier, String), len(search_phrase))) == search_phrase.lower(),
+                    func.lower(func.left(User.full_name, len(search_phrase))) == search_phrase.lower()
                 ),
-                User.user_role_name != "admin"
+                User.user_role_name != ADMIN # Exclude administrators from search results for security/privacy.
             )
         )
         result = session.execute(query).all()
-        # query = f""" 
-        #     SELECT * 
-        #     FROM users
-        #     WHERE 
-        #         (
-        #             LEFT(
-        #                 CAST(
-        #                     system_wide_identifier AS VARCHAR(20)), 
-        #                     {len(search_phrase)}
-        #                 ) = :search_phrase
-        #             OR LEFT(
-        #                 CAST(
-        #                     full_name AS VARCHAR(20)), 
-        #                     {len(search_phrase)}
-        #                 ) = :search_phrase
-        #         )
-        #         AND user_role_name <> '{ADMIN}'       
-        # """
-        # #now it is safe against injection
-        # result = session.execute(
-        #     text(query), 
-        #     {"search_phrase": search_phrase}).fetchall()
-
-    # results = []
-    # for row in result:
-    #     for user in row.tuple():
-    #         results.append(user.to_dict())
-    return result # send the result directly
+    return result
 
 
 @logged()

@@ -3,9 +3,14 @@
 
 log_db: public(DynArray[String[1000], 2**32])
 
+event AppLog:
+    sender: indexed(address)
+    value: uint256
+
 @external
 def add_log(log_mss: String[1000]):
     self.log_db.append(log_mss)
+    log AppLog(msg.sender, len(self.log_db) + 1)
 
 @view
 @external
